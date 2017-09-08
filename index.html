@@ -4,21 +4,36 @@
 <head>
     <meta charset=utf-8>
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>AImaze me</title>
+    <title>AI_maze me</title>
     <meta name="description" content="A procedurally generated 3D maze with WebGL" />
     <meta name="author" content="Adam Alsegard" />
-    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <!--<meta name="viewport" content="width=device-width,initial-scale=1" />-->
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 
     <!-- Stylesheets -->
     <link rel="stylesheet" type="text/css" href="css/style.css">
 </head>
 
 <body>
-    <!--<canvas id="glCanvas"></canvas>-->
+
+    <div id='instructions'>
+        How to play Astray:
+        <br><br> Use the arrow keys to move the ball and find the exit to the maze.
+        <br><br> Vim trainees: h, j, k, l
+    </div>
+
+    <div id='help'>
+        Hold down the 'I' key for instructions.
+    </div>
+
+    <div id='level'>
+        Level 1
+    </div>
 
     <!-- Imported scripts -->
-    <script src="js/three.min.js"></script>
+    <script src="js/Detector.js"></script>
     <script src="js/keyboard.min.js"></script>
+    <script src="js/three.min.js"></script>
     <script src="js/Box2d.min.js"></script>
     <script src="js/jquery-3.2.1.min.js"></script>
     <!-- My logic-->
