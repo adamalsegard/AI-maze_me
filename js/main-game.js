@@ -1,91 +1,33 @@
-//
-// VERTEX SHADER
-//
-const vertGLSL = `
-attribute vec4 aPosition;
+// Set up scene with Three.js
+var scene = new THREE.Scene();
+var camera = new THREE.PerspectiveCamera(
+  75,
+  window.innerWidth / window.innerHeight,
+  0.1,
+  1000
+);
+var renderer = new THREE.WebGLRenderer();
+renderer.setSize(window.innerWidth, window.innerHeight);
+document.body.appendChild(renderer.domElement);
 
-uniform mat4 uMV;
-uniform mat4 uP;
+var geometry = new THREE.BoxGeometry(1, 1, 1);
+var material = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+var cube = new THREE.Mesh(geometry, material);
+scene.add(cube);
 
-void main()  {
-  gl_Position = uP * uMV * aPosition;
-}`;
-
-//
-// FRAGMENT SHADER
-//
-const fragGLSL = `
-void main() {
-  gl_FragColor = vec4(1.0, 1.0, 1.0, 1.0);
-}`;
+camera.position.z = 5;
 
 //
-// MAIN GAME LOOP
+// RENDER LOOP
 //
-main();
+function render() {
+  requestAnimationFrame(render);
 
-function main() {
-  // Get canvas and initialize GL context
-  const canvas = document.querySelector('#glCanvas');
-  const gl = canvas.getContext('webgl');
+  cube.rotation.x += 0.05;
+  cube.rotation.y += 0.05;
 
-  if (!gl) {
-    alert('Unable to initialize WebGL. Your browser may not support it.');
-    return;
-  }
-
-  // Create shaders
-  const shaderProgram = initShaderProgram(gl, vertGLSL, fragGLSL)
-
-  // Define shader locations
-  const programInfo = {
-    program: shaderProgram,
-    attribLocations: {
-      vertexPosition: gl.getAttribLocation(shaderProgram, 'aPosition'),
-    },
-    uniformLocations: {
-      projectionMatrix: gl.getUniformLocation(shaderProgram, 'uP'),
-      modelViewMatrix: gl.getUniformLocation(shaderProgram, 'uMV'),
-    },
-  };
-
-  // Clear buffers
-  gl.clearColor(0.0, 0.0, 0.0, 1.0);
-  gl.clear(gl.COLOR_BUFFER_BIT);
+  renderer.render(scene, camera);
 }
 
-//
-// INIT SHADERS
-//
-function initShaderProgram(gl, vsSource, fsSource) {
-  const vertShader = loadShader(gl, gl.VERTEX_SHADER, vsSource);
-  const fragShader = loadShader(gl, gl.FRAGMENT_SHADER, fsSource);
-
-  // Create shader program
-  const shaderProgram = gl.createProgram();
-  gl.attachShader(shaderProgram, vertShader);
-  gl.attachShader(shaderProgram, fragShader);
-  gl.linkProgram(shaderProgram);
-
-  if(!gl.getProgramParameter(shaderProgram, gl.LINK_STATUS)) {
-    alert('Unable to initialize shader program: ' + gl.getProgramInfoLog(shaderProgram));
-    return null;
-  }
-
-  return shaderProgram;
-}
-
-// Help function to load a shader of specified type
-function loadShader(gl, type, source) {
-  const shader = gl.createShader(type);
-  gl.shaderSource(shader, source);
-  gl.compileShader(shader);
-
-  if(!gl.getShaderParameter(shader, gl.COMPILE_STATUS)) {
-    alert('Unable to compile shaders: ' + gl.getShaderInfoLog(shader));
-    gl.deleteShader(shader);
-    return null;
-  }
-
-  return shader;
-}
+// Call render loop
+render();
