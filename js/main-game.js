@@ -11,7 +11,7 @@ if (!Detector.webgl) {
 /**
  * INTERNAL HELPERS
  */
-var textureLoader = new THREE.TextureLoader();
+//var textureLoader = new THREE.TextureLoader();
 
 /**
  * DECLARE VARIABLES
@@ -30,9 +30,12 @@ var camera = undefined,
   ballRadius = 0.25,
   keyAxis = [0, 0],
   // Load textures
-  ironTexture = textureLoader.load('./tex/ball.png'),
-  planeTexture = textureLoader.load('./tex/concrete.png'),
-  brickTexture = textureLoader.load('./tex/brick.png'),
+  //ironTexture = textureLoader.load('./tex/ball.png'),
+  //planeTexture = textureLoader.load('./tex/concrete.png'),
+  //brickTexture = textureLoader.load('./tex/brick.png'),
+  ironTexture    = THREE.ImageUtils.loadTexture('/tex/ball.png'),
+  planeTexture   = THREE.ImageUtils.loadTexture('/tex/concrete.png'),
+  brickTexture   = THREE.ImageUtils.loadTexture('/tex/brick.png'),
   gameState = undefined,
   // Box2D shortcuts
   b2World = Box2D.Dynamics.b2World,
@@ -88,7 +91,8 @@ function generate_maze_mesh(field) {
         mesh_ij.position.x = i;
         mesh_ij.position.y = j;
         mesh_ij.position.z = 0.5;
-        dummy.mergeMesh(mesh_ij);
+        //dummy.mergeMesh(mesh_ij);
+        THREE.GeometryUtils.merge(dummy, mesh_ij);
       }
     }
   }
@@ -138,6 +142,27 @@ function createRenderWorld() {
   planeMesh.rotation.set(Math.PI / 2, 0, 0);
   scene.add(planeMesh);
 }
+/**
+ * Camera movement
+ */
+function onMoveUp() {
+  keyAxis[1] = 1;
+}
+function onMoveDown() {
+  keyAxis[1] = -1;
+}
+function onMoveLeft() {
+  keyAxis[0] = -1;
+}
+function onMoveRight() {
+  keyAxis[0] = 1;
+}
+function updateCameraPosition() {
+  if (Key.isDown(Key.UP)) onMoveUp();
+  if (Key.isDown(Key.LEFT)) onMoveLeft();
+  if (Key.isDown(Key.DOWN)) onMoveDown();
+  if (Key.isDown(Key.RIGHT)) onMoveRight();
+}
 
 function updatePhysicsWorld() {
   // Apply "friction".
@@ -167,13 +192,13 @@ function updateRenderWorld() {
   // Update ball rotation.
   var tempMat = new THREE.Matrix4();
   tempMat.makeRotationAxis(new THREE.Vector3(0, 1, 0), stepX / ballRadius);
-  tempMat.multiply(ballMesh.matrix);
+  tempMat.multiplySelf(ballMesh.matrix);
   ballMesh.matrix = tempMat;
   tempMat = new THREE.Matrix4();
   tempMat.makeRotationAxis(new THREE.Vector3(1, 0, 0), -stepY / ballRadius);
-  tempMat.multiply(ballMesh.matrix);
+  tempMat.multiplySelf(ballMesh.matrix);
   ballMesh.matrix = tempMat;
-  ballMesh.rotation.setFromRotationMatrix(ballMesh.matrix);
+  ballMesh.rotation.getRotationFromMatrix(ballMesh.matrix);
 
   // Update camera and light positions.
   camera.position.x += (ballMesh.position.x - camera.position.x) * 0.1;
@@ -209,6 +234,7 @@ function gameLoop() {
       break;
 
     case 'play':
+      updateCameraPosition();
       updatePhysicsWorld();
       updateRenderWorld();
       renderer.render(scene, camera);
@@ -244,10 +270,6 @@ function onResize() {
   camera.updateProjectionMatrix();
 }
 
-function onMoveKey(axis) {
-  keyAxis = axis.slice(0);
-}
-
 jQuery.fn.centerv = function() {
   wh = window.innerHeight;
   h = this.outerHeight();
@@ -270,18 +292,40 @@ jQuery.fn.center = function() {
   return this;
 };
 
+var Key = {
+  _pressed: {},
+
+  LEFT: 37,
+  UP: 38,
+  RIGHT: 39,
+  DOWN: 40,
+  I: 73,
+  
+  isDown: function(keyCode) {
+    return this._pressed[keyCode];
+  },
+  
+  onKeydown: function(event) {
+    this._pressed[event.keyCode] = true;
+  },
+  
+  onKeyup: function(event) {
+    delete this._pressed[event.keyCode];
+  }
+};
+
 /**
  * Main function
  */
 $(document).ready(function() {
   // TODO: Init map over entire maze
-
+  $('#information').hide();
   
   // Prepare the instructions.
   $('#instructions').center();
   $('#instructions').hide();
   keyboardJS.bind(
-    'i',
+    'h',
     function() {
       $('#instructions').show();
     },
@@ -296,8 +340,8 @@ $(document).ready(function() {
   document.body.appendChild(renderer.domElement);
 
   // Bind keyboard and resize events.
-  keyboardJS.bind('left', 'right', 'down', 'up', onMoveKey);
-  keyboardJS.bind('h', 'l', 'j', 'k', onMoveKey);
+  window.addEventListener('keyup', function(event) { Key.onKeyup(event); }, false);
+  window.addEventListener('keydown', function(event) { Key.onKeydown(event); }, false);
   $(window).resize(onResize);
 
   // Set the initial game state.
@@ -305,4 +349,5 @@ $(document).ready(function() {
 
   // Start the game loop.
   requestAnimationFrame(gameLoop);
+
 });

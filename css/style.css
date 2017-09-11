@@ -3,6 +3,15 @@ body {
   margin: 0px;
   padding: 0px;
   font-family: 'Helvetica';
+  overflow: hidden;
+}
+
+#information {
+  position: absolute;
+  left: 0px;
+  bottom: 0px;
+  padding: 4px;
+  color: white;
 }
 
 #instructions {

@@ -7,7 +7,6 @@
     <title>AI_maze me</title>
     <meta name="description" content="A procedurally generated 3D maze with WebGL" />
     <meta name="author" content="Adam Alsegard" />
-    <!--<meta name="viewport" content="width=device-width,initial-scale=1" />-->
     <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 
     <!-- Stylesheets -->
@@ -16,14 +15,17 @@
 
 <body>
 
+    <div id='information'>
+        The maze will be procedurally generated .
+    </div>
+
     <div id='instructions'>
-        How to play Astray:
+        How to play AI_maze:
         <br><br> Use the arrow keys to move the ball and find the exit to the maze.
-        <br><br> Vim trainees: h, j, k, l
     </div>
 
     <div id='help'>
-        Hold down the 'I' key for instructions.
+        Hold down the 'H' key for help.
     </div>
 
     <div id='level'>
@@ -33,9 +35,10 @@
     <!-- Imported scripts -->
     <script src="js/Detector.js"></script>
     <script src="js/keyboard.min.js"></script>
-    <script src="js/three.min.js"></script>
+    <!--<script src="js/three.min.js"></script>-->
     <script src="js/Box2d.min.js"></script>
     <script src="js/jquery-3.2.1.min.js"></script>
+    <script src="js/Astray/Three.js"></script>
     <!-- My logic-->
     <script src="js/maze-generator.js"></script>
     <script src="js/main-game.js"></script>
