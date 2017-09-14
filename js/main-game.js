@@ -11,7 +11,7 @@ if (!Detector.webgl) {
 /**
  * INTERNAL HELPERS
  */
-//var textureLoader = new THREE.TextureLoader();
+var textureLoader = new THREE.TextureLoader();
 
 /**
  * DECLARE VARIABLES
@@ -20,23 +20,22 @@ var camera = undefined,
   scene = undefined,
   renderer = undefined,
   light = undefined,
+  gameState = undefined,
   mouseX = undefined,
   mouseY = undefined,
   maze = undefined,
   mazeMesh = undefined,
   mazeDimension = 11,
-  planeMesh = undefined,
+  groundMesh = undefined,
   ballMesh = undefined,
   ballRadius = 0.25,
   keyAxis = [0, 0],
+
   // Load textures
-  //ironTexture = textureLoader.load('./tex/ball.png'),
-  //planeTexture = textureLoader.load('./tex/concrete.png'),
-  //brickTexture = textureLoader.load('./tex/brick.png'),
-  ironTexture    = THREE.ImageUtils.loadTexture('/tex/ball.png'),
-  planeTexture   = THREE.ImageUtils.loadTexture('/tex/concrete.png'),
-  brickTexture   = THREE.ImageUtils.loadTexture('/tex/brick.png'),
-  gameState = undefined,
+  groundTexture = textureLoader.load('./tex/gravel1.jpg'),
+  mazeTexture = textureLoader.load('./tex/bush_light1.jpg'),
+  ballTexture = textureLoader.load('./tex/ball.png'),
+  
   // Box2D shortcuts
   b2World = Box2D.Dynamics.b2World,
   b2FixtureDef = Box2D.Dynamics.b2FixtureDef,
@@ -46,10 +45,15 @@ var camera = undefined,
   b2PolygonShape = Box2D.Collision.Shapes.b2PolygonShape,
   b2Settings = Box2D.Common.b2Settings,
   b2Vec2 = Box2D.Common.Math.b2Vec2,
+
   // Box2D world variables
   wWorld = undefined,
   wBall = undefined;
 
+
+/**
+ * INIT FUNCTIONS
+ */
 function createPhysicsWorld() {
   // Create the world object.
   wWorld = new b2World(new b2Vec2(0, 0), true);
@@ -81,82 +85,79 @@ function createPhysicsWorld() {
   }
 }
 
-function generate_maze_mesh(field) {
-  var dummy = new THREE.Geometry();
+function create_maze_mesh(field) {
+  var mazeGroup = new THREE.Group();
   for (var i = 0; i < field.dimension; i++) {
     for (var j = 0; j < field.dimension; j++) {
       if (field[i][j]) {
-        var geometry = new THREE.CubeGeometry(1, 1, 1, 1, 1, 1);
-        var mesh_ij = new THREE.Mesh(geometry);
-        mesh_ij.position.x = i;
-        mesh_ij.position.y = j;
-        mesh_ij.position.z = 0.5;
-        //dummy.mergeMesh(mesh_ij);
-        THREE.GeometryUtils.merge(dummy, mesh_ij);
+        var mazeGeo = new THREE.BoxGeometry(1, 1, 1);
+        var mazeMat = new THREE.MeshPhongMaterial({ map: mazeTexture });
+        var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
+        maze_ij.position.x = i;
+        maze_ij.position.y = j;
+        maze_ij.position.z = 0.5;
+        maze_ij.castShadow = true;
+        maze_ij.receiveShadow = true;
+        mazeGroup.add(maze_ij);
       }
     }
   }
-  var material = new THREE.MeshPhongMaterial({ map: brickTexture });
-  var mesh = new THREE.Mesh(dummy, material);
-  return mesh;
+  return mazeGroup;
 }
 
 function createRenderWorld() {
   // Create the scene object.
   scene = new THREE.Scene();
 
-  // Add the light.
-  light = new THREE.PointLight(0xffffff, 1);
-  light.position.set(1, 1, 1.3);
+  // Create the light.
+  light = new THREE.PointLight(0xffffff, 1, 100, 2);
+  light.position.set(1, 1, 1.5);
+  light.castShadow = true;
   scene.add(light);
 
-  // Add the ball.
-  g = new THREE.SphereGeometry(ballRadius, 32, 16);
-  m = new THREE.MeshPhongMaterial({ map: ironTexture });
-  ballMesh = new THREE.Mesh(g, m);
-  ballMesh.position.set(1, 1, ballRadius);
-  scene.add(ballMesh);
-
-  // Add the camera.
+  // Create the camera.
   var aspect = window.innerWidth / window.innerHeight;
-  camera = new THREE.PerspectiveCamera(60, aspect, 1, 1000);
-  camera.position.set(1, 1, 5);
+  camera = new THREE.PerspectiveCamera(50, aspect, 1, 1000);
+  camera.position.set(1, 1, 7);
   scene.add(camera);
 
-  // Add the maze.
-  mazeMesh = generate_maze_mesh(maze);
-  scene.add(mazeMesh);
+  // Create the ball and add to scene.
+  /*var ballGeo = new THREE.SphereGeometry(ballRadius, 32, 16);
+  var ballMat = new THREE.MeshPhongMaterial({ map: ballTexture });
+  ballMesh = new THREE.Mesh(ballGeo, ballMat);
+  ballMesh.position.set(1, 1, ballRadius);
+  scene.add(ballMesh);
+  */
 
-  // Add the ground.
-  g = new THREE.PlaneGeometry(
+  // Create the maze and add to scene.
+  mazeMesh = create_maze_mesh(maze);
+  scene.add(mazeMesh)
+  
+  // Create the ground and add to scene.
+  var groundGeo = new THREE.PlaneGeometry(
     mazeDimension * 10,
     mazeDimension * 10,
     mazeDimension,
     mazeDimension
   );
-  planeTexture.wrapS = planeTexture.wrapT = THREE.RepeatWrapping;
-  planeTexture.repeat.set(mazeDimension * 5, mazeDimension * 5);
-  m = new THREE.MeshPhongMaterial({ map: planeTexture });
-  planeMesh = new THREE.Mesh(g, m);
-  planeMesh.position.set((mazeDimension - 1) / 2, (mazeDimension - 1) / 2, 0);
-  planeMesh.rotation.set(Math.PI / 2, 0, 0);
-  scene.add(planeMesh);
+  groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
+  groundTexture.repeat.set(mazeDimension * 5, mazeDimension * 5);
+  var groundMat = new THREE.MeshPhongMaterial({ map: groundTexture });
+  groundMesh = new THREE.Mesh(groundGeo, groundMat);
+  groundMesh.position.set((mazeDimension - 1) / 2, (mazeDimension - 1) / 2, -5);
+  groundMesh.receiveShadow = true;
+  //scene.add(groundMesh);
+  
 }
+
 /**
- * Camera movement
+ * KEYBOARD INPUT - CAMERA MOVEMENT
  */
-function onMoveUp() {
-  keyAxis[1] = 1;
-}
-function onMoveDown() {
-  keyAxis[1] = -1;
-}
-function onMoveLeft() {
-  keyAxis[0] = -1;
-}
-function onMoveRight() {
-  keyAxis[0] = 1;
-}
+function onMoveUp() { keyAxis[1] = 1; }
+function onMoveDown() { keyAxis[1] = -1; }
+function onMoveLeft() { keyAxis[0] = -1; }
+function onMoveRight() { keyAxis[0] = 1; }
+
 function updateCameraPosition() {
   if (Key.isDown(Key.UP)) onMoveUp();
   if (Key.isDown(Key.LEFT)) onMoveLeft();
@@ -164,6 +165,31 @@ function updateCameraPosition() {
   if (Key.isDown(Key.RIGHT)) onMoveRight();
 }
 
+var Key = {
+  _pressed: {},
+
+  LEFT: 37,
+  UP: 38,
+  RIGHT: 39,
+  DOWN: 40,
+  I: 73,
+  
+  isDown: function(keyCode) {
+    return this._pressed[keyCode];
+  },
+  
+  onKeydown: function(event) {
+    this._pressed[event.keyCode] = true;
+  },
+  
+  onKeyup: function(event) {
+    delete this._pressed[event.keyCode];
+  }
+};
+
+/**
+ * UPDATE FUNCTIONS
+ */
 function updatePhysicsWorld() {
   // Apply "friction".
   var lv = wBall.GetLinearVelocity();
@@ -184,7 +210,7 @@ function updatePhysicsWorld() {
 
 function updateRenderWorld() {
   // Update ball position.
-  var stepX = wBall.GetPosition().x - ballMesh.position.x;
+  /*var stepX = wBall.GetPosition().x - ballMesh.position.x;
   var stepY = wBall.GetPosition().y - ballMesh.position.y;
   ballMesh.position.x += stepX;
   ballMesh.position.y += stepY;
@@ -192,23 +218,27 @@ function updateRenderWorld() {
   // Update ball rotation.
   var tempMat = new THREE.Matrix4();
   tempMat.makeRotationAxis(new THREE.Vector3(0, 1, 0), stepX / ballRadius);
-  tempMat.multiplySelf(ballMesh.matrix);
+  tempMat.multiply(ballMesh.matrix);
   ballMesh.matrix = tempMat;
   tempMat = new THREE.Matrix4();
   tempMat.makeRotationAxis(new THREE.Vector3(1, 0, 0), -stepY / ballRadius);
-  tempMat.multiplySelf(ballMesh.matrix);
+  tempMat.multiply(ballMesh.matrix);
   ballMesh.matrix = tempMat;
-  ballMesh.rotation.getRotationFromMatrix(ballMesh.matrix);
-
+  ballMesh.rotation.setFromRotationMatrix(ballMesh.matrix);
+  */
   // Update camera and light positions.
-  camera.position.x += (ballMesh.position.x - camera.position.x) * 0.1;
-  camera.position.y += (ballMesh.position.y - camera.position.y) * 0.1;
-  camera.position.z += (5 - camera.position.z) * 0.1;
+  camera.position.x += keyAxis[0] * 0.3; //(ballMesh.position.x - camera.position.x) * 0.1;
+  camera.position.y += keyAxis[1] * 0.3; //(ballMesh.position.y - camera.position.y) * 0.1;
+  //camera.position.z += (5 - camera.position.z) * 0.1;
   light.position.x = camera.position.x;
   light.position.y = camera.position.y;
-  light.position.z = camera.position.z - 3.7;
+  //light.position.z = camera.position.z - 3.7;
+  keyAxis = [0, 0];
 }
 
+/**
+ * MAIN GAME LOOP
+ */
 function gameLoop() {
   switch (gameState) {
     case 'initialize':
@@ -216,8 +246,6 @@ function gameLoop() {
       maze[mazeDimension - 1][mazeDimension - 2] = false;
       createPhysicsWorld();
       createRenderWorld();
-      camera.position.set(1, 1, 5);
-      light.position.set(1, 1, 1.3);
       light.intensity = 0;
       var level = Math.floor((mazeDimension - 1) / 2 - 4);
       $('#level').html('Level ' + level);
@@ -235,17 +263,17 @@ function gameLoop() {
 
     case 'play':
       updateCameraPosition();
-      updatePhysicsWorld();
+      //updatePhysicsWorld();
       updateRenderWorld();
       renderer.render(scene, camera);
 
       // Check for victory.
-      var mazeX = Math.floor(ballMesh.position.x + 0.5);
+      /*var mazeX = Math.floor(ballMesh.position.x + 0.5);
       var mazeY = Math.floor(ballMesh.position.y + 0.5);
       if (mazeX == mazeDimension && mazeY == mazeDimension - 2) {
         mazeDimension += 2;
         gameState = 'fade out';
-      }
+      }*/
       break;
 
     case 'fade out':
@@ -264,6 +292,9 @@ function gameLoop() {
   requestAnimationFrame(gameLoop);
 }
 
+/**
+ * WINDOW FUNCTIONS
+ */
 function onResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   camera.aspect = window.innerWidth / window.innerHeight;
@@ -292,30 +323,8 @@ jQuery.fn.center = function() {
   return this;
 };
 
-var Key = {
-  _pressed: {},
-
-  LEFT: 37,
-  UP: 38,
-  RIGHT: 39,
-  DOWN: 40,
-  I: 73,
-  
-  isDown: function(keyCode) {
-    return this._pressed[keyCode];
-  },
-  
-  onKeydown: function(event) {
-    this._pressed[event.keyCode] = true;
-  },
-  
-  onKeyup: function(event) {
-    delete this._pressed[event.keyCode];
-  }
-};
-
 /**
- * Main function
+ * MAIN (LOAD) FUNCTION
  */
 $(document).ready(function() {
   // TODO: Init map over entire maze
@@ -334,9 +343,12 @@ $(document).ready(function() {
     }
   );
 
-  // Create the renderer.
+  // Create the WebGL renderer.
   renderer = new THREE.WebGLRenderer();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  // Enable shadows
+  renderer.shadowMap.enabled = true;
+  renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   document.body.appendChild(renderer.domElement);
 
   // Bind keyboard and resize events.
