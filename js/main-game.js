@@ -25,9 +25,9 @@ var camera = undefined,
   mouseY = undefined,
   maze = undefined,
   mazeMesh = undefined,
-  mazeDimension = 11,
-  groundMesh = undefined,
   ballMesh = undefined,
+  groundMesh = undefined,
+  mazeDimension = 11,
   ballRadius = 0.25,
   keyAxis = [0, 0],
 
@@ -37,14 +37,14 @@ var camera = undefined,
   ballTexture = textureLoader.load('./tex/ball.png'),
   
   // Box2D shortcuts
-  b2World = Box2D.Dynamics.b2World,
+  /*b2World = Box2D.Dynamics.b2World,
   b2FixtureDef = Box2D.Dynamics.b2FixtureDef,
   b2BodyDef = Box2D.Dynamics.b2BodyDef,
   b2Body = Box2D.Dynamics.b2Body,
   b2CircleShape = Box2D.Collision.Shapes.b2CircleShape,
   b2PolygonShape = Box2D.Collision.Shapes.b2PolygonShape,
   b2Settings = Box2D.Common.b2Settings,
-  b2Vec2 = Box2D.Common.Math.b2Vec2,
+  b2Vec2 = Box2D.Common.Math.b2Vec2,*/
 
   // Box2D world variables
   wWorld = undefined,
@@ -110,9 +110,9 @@ function createRenderWorld() {
   scene = new THREE.Scene();
 
   // Create the light.
-  light = new THREE.PointLight(0xffffff, 1, 100, 2);
+  light = new THREE.PointLight(0xffffff, 1, 15, 2);
   light.position.set(1, 1, 1.5);
-  light.castShadow = true;
+  light.castShadow = false; // TODO: Change back when I fixed scene
   scene.add(light);
 
   // Create the camera.
@@ -122,16 +122,15 @@ function createRenderWorld() {
   scene.add(camera);
 
   // Create the ball and add to scene.
-  /*var ballGeo = new THREE.SphereGeometry(ballRadius, 32, 16);
+  var ballGeo = new THREE.SphereGeometry(ballRadius, 32, 16);
   var ballMat = new THREE.MeshPhongMaterial({ map: ballTexture });
   ballMesh = new THREE.Mesh(ballGeo, ballMat);
   ballMesh.position.set(1, 1, ballRadius);
   scene.add(ballMesh);
-  */
 
   // Create the maze and add to scene.
   mazeMesh = create_maze_mesh(maze);
-  scene.add(mazeMesh)
+  scene.add(mazeMesh);
   
   // Create the ground and add to scene.
   var groundGeo = new THREE.PlaneGeometry(
@@ -144,9 +143,9 @@ function createRenderWorld() {
   groundTexture.repeat.set(mazeDimension * 5, mazeDimension * 5);
   var groundMat = new THREE.MeshPhongMaterial({ map: groundTexture });
   groundMesh = new THREE.Mesh(groundGeo, groundMat);
-  groundMesh.position.set((mazeDimension - 1) / 2, (mazeDimension - 1) / 2, -5);
+  groundMesh.position.set((mazeDimension - 1) / 2, (mazeDimension - 1) / 2, 0);
   groundMesh.receiveShadow = true;
-  //scene.add(groundMesh);
+  scene.add(groundMesh);
   
 }
 
@@ -226,6 +225,7 @@ function updateRenderWorld() {
   ballMesh.matrix = tempMat;
   ballMesh.rotation.setFromRotationMatrix(ballMesh.matrix);
   */
+
   // Update camera and light positions.
   camera.position.x += keyAxis[0] * 0.3; //(ballMesh.position.x - camera.position.x) * 0.1;
   camera.position.y += keyAxis[1] * 0.3; //(ballMesh.position.y - camera.position.y) * 0.1;
@@ -244,7 +244,7 @@ function gameLoop() {
     case 'initialize':
       maze = generateSquareMaze(mazeDimension);
       maze[mazeDimension - 1][mazeDimension - 2] = false;
-      createPhysicsWorld();
+      //createPhysicsWorld();
       createRenderWorld();
       light.intensity = 0;
       var level = Math.floor((mazeDimension - 1) / 2 - 4);
@@ -268,16 +268,16 @@ function gameLoop() {
       renderer.render(scene, camera);
 
       // Check for victory.
-      /*var mazeX = Math.floor(ballMesh.position.x + 0.5);
+      var mazeX = Math.floor(ballMesh.position.x + 0.5);
       var mazeY = Math.floor(ballMesh.position.y + 0.5);
       if (mazeX == mazeDimension && mazeY == mazeDimension - 2) {
         mazeDimension += 2;
         gameState = 'fade out';
-      }*/
+      }
       break;
 
     case 'fade out':
-      updatePhysicsWorld();
+      //updatePhysicsWorld();
       updateRenderWorld();
       light.intensity += 0.1 * (0.0 - light.intensity);
       renderer.render(scene, camera);
@@ -296,6 +296,7 @@ function gameLoop() {
  * WINDOW FUNCTIONS
  */
 function onResize() {
+  console.log("Resized!"); // Test this shit later!
   renderer.setSize(window.innerWidth, window.innerHeight);
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
@@ -354,7 +355,7 @@ $(document).ready(function() {
   // Bind keyboard and resize events.
   window.addEventListener('keyup', function(event) { Key.onKeyup(event); }, false);
   window.addEventListener('keydown', function(event) { Key.onKeydown(event); }, false);
-  $(window).resize(onResize);
+  $(window).resize(onResize); // TODO: Doesn't work!
 
   // Set the initial game state.
   gameState = 'initialize';
