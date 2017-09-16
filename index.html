@@ -15,21 +15,47 @@
 
 <body>
 
-    <div id='information'>
-        The maze will be procedurally generated .
+    <div id='help'>
+        <h3>Help</h3>
+        <div>
+            <p>This is a procedurally generated maze. An AI agent has been trained with Q-learning to solve these kinds of mazes.</p>
+            <p>There is also an alternative to play the game with manual controls. Press the following keys to switch between
+                the different game modes: </p>
+        </div>
+        <br>
+        <div id="help-keys">
+            <p>A : AI mode. Watch the pre-trained agent solve the current maze. (Default) </p>
+            <p>M : Manual mode. Press 'I' to show controls. </p>
+            <p>N : Start a training session for a new AI agent. </p>
+        </div>
+
     </div>
 
     <div id='instructions'>
-        How to play AI_maze:
-        <br><br> Use the arrow keys to move the ball and find the exit to the maze.
+        <h3>Instructions</h3>
+        <p>Use the arrow keys to move the ball and find your way out of the maze before your energy is gone.</p>
+        <p>You lose some energy for every step you take. Note that brick walls are solid but bushes are not.</p>
+        <p>However, if you go through a bush, more energy is spent. The darker the bush the more energy it requires.</p>
+        <p>Good luck!</p>
     </div>
 
-    <div id='help'>
-        Hold down the 'H' key for help.
+    <div id='notes'>
+        <h4>Press 'H' for Help.</h4>
+        <h4>Press 'I' for Instructions.</h4>
     </div>
 
-    <div id='level'>
-        Level 1
+    <div id='energy-info'>
+        <h4 id="energy-left">Energy left: 1000</h4>
+    </div>
+
+    <div id='level-info'>
+        <h4 id="level">Level 1</h4>
+        <h4 id="maze-size">Maze size: 11</h4>
+        <h4 id="training-round">Training round: 1</h4>
+    </div>
+
+    <div id='maze-map'>
+        <h4>Map</h4>
     </div>
 
     <!-- Imported scripts -->
@@ -37,7 +63,8 @@
     <script src="js/keyboard.min.js"></script>
     <script src="js/three.js"></script>
     <script src="js/jquery-3.2.1.min.js"></script>
-    <script src="js/cannon.js"></script> <!-- TODO: change to minified before release -->
+    <script src="js/cannon.js"></script>
+    <!-- TODO: change to minified before release -->
     <!-- My logic-->
     <script src="js/maze-generator.js"></script>
     <script src="js/main-game.js"></script>

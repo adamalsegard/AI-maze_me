@@ -57,14 +57,10 @@ function createPhysicsWorld() {
     friction: 0.5,
     restitution: 0.3 // Studskoefficient
   });
-  var contactDef = new CANNON.ContactMaterial(
-    solidMaterial,
-    solidMaterial, 
-    {
-      friction: 0.5,
-      restitution: 0.8,
-    }
-  );
+  var contactDef = new CANNON.ContactMaterial(solidMaterial, solidMaterial, {
+    friction: 0.5,
+    restitution: 0.8
+  });
   globalWorld.addContactMaterial(contactDef);
 
   // Create the ball.
@@ -244,16 +240,20 @@ function updateRenderWorld() {
  */
 function gameLoop() {
   switch (gameState) {
-
     case 'initialize':
       maze = generateSquareMaze(mazeDimension);
       maze[mazeDimension - 1][mazeDimension - 2] = false;
       createPhysicsWorld();
       createRenderWorld();
 
+      // TODO: Init map over entire maze
+      //$('#maze-map').hide();
+
       light.intensity = 0;
       var level = Math.floor((mazeDimension - 1) / 2 - 4);
       $('#level').html('Level ' + level);
+      $('#maze-size').html('Maze size: ' + mazeDimension);
+      //$('#training-round').html('Training round: ' + trainingRound); // TODO
       gameState = 'fade in';
       break;
 
@@ -272,6 +272,10 @@ function gameLoop() {
       updatePhysicsWorld();
       updateRenderWorld();
       renderer.render(scene, camera);
+
+      // Update energy window.
+      // TODO: make some animation when energy declines!
+      //$('#energy-left').html('Energy left: ' + energy);
 
       // Check for victory.
       var mazeX = Math.floor(ballMesh.position.x + 0.5);
@@ -308,6 +312,7 @@ function onResize() {
   camera.updateProjectionMatrix();
   // Recenter instructions
   $('#instructions').center();
+  $('#help').center();
 }
 
 jQuery.fn.centerv = function() {
@@ -336,19 +341,29 @@ jQuery.fn.center = function() {
  * MAIN (LOAD) FUNCTION
  */
 $(document).ready(function() {
-  // TODO: Init map over entire maze
-  $('#information').hide();
-
-  // Prepare the instructions.
+  // Prepare the 'Instructions' window.
   $('#instructions').center();
   $('#instructions').hide();
   keyboardJS.bind(
-    'h',
+    'i',
     function() {
       $('#instructions').show();
     },
     function() {
       $('#instructions').hide();
+    }
+  );
+
+  // Prepare the 'Help' window.
+  $('#help').center();
+  $('#help').hide(); // TODO: show on reload?
+  keyboardJS.bind(
+    'h',
+    function() {
+      $('#help').show();
+    },
+    function() {
+      $('#help').hide();
     }
   );
 

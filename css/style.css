@@ -6,37 +6,79 @@ body {
   overflow: hidden;
 }
 
-#information {
-  position: absolute;
-  left: 0px;
-  bottom: 0px;
-  padding: 4px;
-  color: white;
+h4 {
+  margin: 0em;
 }
 
-#instructions {
+/* Pop-up window, centered */
+#help {
   background-color: rgba(0, 0, 0, 0.75);
   color: white;
   text-align: center;
-  padding: 32px;
+  padding: 2em;
   margin: 0px;
   display: inline;
   border: 2px solid white;
 }
 
-#help {
-  position: absolute;
-  left: 0px;
-  bottom: 0px;
-  padding: 4px;
-  color: white;
+#help-keys {
+  padding-left: 15em;
+  text-align: left;
 }
 
-#level {
+/* Pop-up window, centered */
+#instructions {
+  background-color: rgba(0, 0, 0, 0.75);
+  color: white;
+  text-align: center;
+  padding: 2em;
+  margin: 0px;
+  display: inline;
+  border: 2px solid white;
+}
+
+/* Bottom-left corner */
+#notes {
   position: absolute;
-  left: 0px;
-  top: 0px;
-  padding: 4px;
-  color: yellow;
-  font-weight: bold;
+  left: 1vw;
+  bottom: 1vw;
+  padding: 1vh;
+  color: #A0A0A0;
+  display: block;
+  border: 2px solid #636363;
+  background-color: rgba(43, 43, 43, 0.75);
+}
+
+/* Top-left corner */
+#energy-info {
+  position: absolute;
+  left: 1vw;
+  top: 1vw;
+  padding: 1vh;
+  color: #A0A0A0;
+  display: block;
+  border: 2px solid #636363;
+  background-color: rgba(43, 43, 43, 0.75);
+}
+
+/* Top-right corner */
+#level-info {
+  position: absolute;
+  right: 1vw;
+  top: 1vw;
+  padding: 1vh; 
+  color: #A0A0A0;
+  border: 2px solid #636363;
+  background-color: rgba(43, 43, 43, 0.75);
+}
+
+/* Bottom-right corner */
+#maze-map {
+  position: absolute;
+  right: 1vw;
+  bottom: 1vw;
+  padding: 1vh;
+  color: #A0A0A0;
+  border: 2px solid #636363;
+  background-color: rgba(43, 43, 43, 0.75);
 }
