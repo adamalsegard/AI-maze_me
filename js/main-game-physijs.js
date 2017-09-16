@@ -8,7 +8,10 @@ if (!Detector.webgl) {
   document.body.appendChild(warning);
 }
 
+// Link Physijs libs
 ('use strict');
+Physijs.scripts.ammo = '/js/ammo.js';
+Physijs.scripts.worker = '/js/physijs_worker.js';
 
 /**
  * INTERNAL HELPERS
@@ -36,70 +39,52 @@ var camera = undefined,
   groundTexture = textureLoader.load('./tex/gravel1.jpg'),
   mazeTexture = textureLoader.load('./tex/bush_light1.jpg'),
   ballTexture = textureLoader.load('./tex/ball.png'),
-  // Physic body variables
-  globalWorld = undefined,
-  fixedTimeStep = undefined,
-  ballBody = undefined,
-  groundBody = undefined,
-  mazeBody = undefined;
+  // Box2D shortcuts
+  /*b2World = Box2D.Dynamics.b2World,
+  b2FixtureDef = Box2D.Dynamics.b2FixtureDef,
+  b2BodyDef = Box2D.Dynamics.b2BodyDef,
+  b2Body = Box2D.Dynamics.b2Body,
+  b2CircleShape = Box2D.Collision.Shapes.b2CircleShape,
+  b2PolygonShape = Box2D.Collision.Shapes.b2PolygonShape,
+  b2Settings = Box2D.Common.b2Settings,
+  b2Vec2 = Box2D.Common.Math.b2Vec2,*/
+
+  // Box2D world variables
+  wWorld = undefined,
+  wBall = undefined;
 
 /**
  * INIT FUNCTIONS
  */
 function createPhysicsWorld() {
-  // Create the physics world object.
-  globalWorld = new CANNON.World();
-  globalWorld.gravity.set(0, 0, -9.82);
-  fixedTimeStep = 1.0 / 60.0;
-
-  // Create materials
-  var solidMaterial = new CANNON.Material({
-    friction: 0.3,
-    restitution: 0.5 // Studskoefficient
-  });
-  var contactDef = new CANNON.ContactMaterial(
-    solidMaterial,
-    solidMaterial, 
-    {
-      friction: 0.2,
-      restitution: 0.8,
-    }
-  );
-  globalWorld.addContactMaterial(contactDef);
+  // Create the world object.
+  wWorld = new b2World(new b2Vec2(0, 0), true);
 
   // Create the ball.
-  ballBody = new CANNON.Body({
-    mass: 1,
-    position: new CANNON.Vec3(1, 1, ballRadius),
-    shape: new CANNON.Sphere(ballRadius),
-    material: solidMaterial
-  });
-  globalWorld.addBody(ballBody);
+  var bodyDef = new b2BodyDef();
+  bodyDef.type = b2Body.b2_dynamicBody;
+  bodyDef.position.Set(1, 1);
+  wBall = wWorld.CreateBody(bodyDef);
+  var fixDef = new b2FixtureDef();
+  fixDef.density = 1.0;
+  fixDef.friction = 0.0;
+  fixDef.restitution = 0.25;
+  fixDef.shape = new b2CircleShape(ballRadius);
+  wBall.CreateFixture(fixDef);
 
-  // Create the maze
+  // Create the maze.
+  bodyDef.type = b2Body.b2_staticBody;
+  fixDef.shape = new b2PolygonShape();
+  fixDef.shape.SetAsBox(0.5, 0.5);
   for (var i = 0; i < maze.dimension; i++) {
     for (var j = 0; j < maze.dimension; j++) {
       if (maze[i][j]) {
-        mazeBody = new CANNON.Body({
-          mass: 10,
-          shape: new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5)),
-          material: solidMaterial
-        });
-        mazeBody.position.x = i;
-        mazeBody.position.y = j;
-        mazeBody.position.z = 0.5;
-        globalWorld.addBody(mazeBody);
+        bodyDef.position.x = i;
+        bodyDef.position.y = j;
+        wWorld.CreateBody(bodyDef).CreateFixture(fixDef);
       }
     }
   }
-
-  // Create the ground
-  groundBody = new CANNON.Body({
-    mass: 0, // Static body
-    shape: new CANNON.Plane(),
-    material: solidMaterial
-  });
-  globalWorld.addBody(groundBody);
 }
 
 function create_maze_mesh(field) {
@@ -109,7 +94,7 @@ function create_maze_mesh(field) {
       if (field[i][j]) {
         var mazeGeo = new THREE.BoxGeometry(1, 1, 1);
         var mazeMat = new THREE.MeshPhongMaterial({ map: mazeTexture });
-        var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
+        var maze_ij = new Physijs.BoxMesh(mazeGeo, mazeMat);
         maze_ij.position.x = i;
         maze_ij.position.y = j;
         maze_ij.position.z = 0.5;
@@ -124,12 +109,17 @@ function create_maze_mesh(field) {
 
 function createRenderWorld() {
   // Create the scene object.
-  scene = new THREE.Scene();
+  scene = new Physijs.Scene();
+  scene.addEventListener('update', function() {
+    // the scene's physics have finished updating
+
+    scene.simulate();
+  });
 
   // Create the light.
   light = new THREE.PointLight(0xffffff, 1, 15, 2);
   light.position.set(1, 1, 1.5);
-  light.castShadow = false; // TODO: Change back when I've fixed the scene
+  light.castShadow = false; // TODO: Change back when I fixed scene
   scene.add(light);
 
   // Create the camera.
@@ -141,7 +131,7 @@ function createRenderWorld() {
   // Create the ball and add to scene.
   var ballGeo = new THREE.SphereGeometry(ballRadius, 32, 16);
   var ballMat = new THREE.MeshPhongMaterial({ map: ballTexture });
-  ballMesh = new THREE.Mesh(ballGeo, ballMat);
+  ballMesh = new Physijs.SphereMesh(ballGeo, ballMat);
   ballMesh.position.set(1, 1, ballRadius);
   scene.add(ballMesh);
 
@@ -159,7 +149,7 @@ function createRenderWorld() {
   groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
   groundTexture.repeat.set(mazeDimension * 5, mazeDimension * 5);
   var groundMat = new THREE.MeshPhongMaterial({ map: groundTexture });
-  groundMesh = new THREE.Mesh(groundGeo, groundMat);
+  groundMesh = new Physijs.PlaneMesh(groundGeo, groundMat);
   groundMesh.position.set((mazeDimension - 1) / 2, (mazeDimension - 1) / 2, 0);
   groundMesh.receiveShadow = true;
   scene.add(groundMesh);
@@ -214,30 +204,25 @@ var Key = {
  * UPDATE FUNCTIONS
  */
 function updatePhysicsWorld() {
-  // Apply "friction". - No need anymore
-  //var ballVelocity = new CANNON.Vec3();
-  //ballBody.getVelocityAtWorldPoint(ballBody.position, ballVelocity);
-  //ballVelocity.scale(0.95, ballVelocity);
-  //ballBody.velocity = ballVelocity;
+  // Apply "friction".
+  var lv = wBall.GetLinearVelocity();
+  lv.Multiply(0.95);
+  wBall.SetLinearVelocity(lv);
 
   // Apply user-directed force.
-  var inputForce = new CANNON.Vec3(
-    keyAxis[0] * ballBody.mass * 0.25,
-    keyAxis[1] * ballBody.mass * 0.25,
-    0.0
+  var f = new b2Vec2(
+    keyAxis[0] * wBall.GetMass() * 0.25,
+    keyAxis[1] * wBall.GetMass() * 0.25
   );
-  ballBody.applyImpulse(inputForce, ballBody.position);
+  wBall.ApplyImpulse(f, wBall.GetPosition());
   keyAxis = [0, 0];
 
   // Take a time step.
-  globalWorld.step(fixedTimeStep);
+  wWorld.Step(1 / 60, 8, 3);
 }
 
 function updateRenderWorld() {
-  // Update ball position and rotation.
-  ballMesh.position.copy(ballBody.position);
-  ballMesh.quaternion.copy(ballBody.quaternion);
-
+  // Update ball position.
   /*var stepX = wBall.GetPosition().x - ballMesh.position.x;
   var stepY = wBall.GetPosition().y - ballMesh.position.y;
   ballMesh.position.x += stepX;
@@ -256,10 +241,8 @@ function updateRenderWorld() {
   */
 
   // Update camera and light positions.
-  //camera.position.x += keyAxis[0] * 0.3;
-  //camera.position.y += keyAxis[1] * 0.3;
-  camera.position.x += (ballMesh.position.x - camera.position.x) * 0.1;
-  camera.position.y += (ballMesh.position.y - camera.position.y) * 0.1;
+  camera.position.x += keyAxis[0] * 0.3; //(ballMesh.position.x - camera.position.x) * 0.1;
+  camera.position.y += keyAxis[1] * 0.3; //(ballMesh.position.y - camera.position.y) * 0.1;
   //camera.position.z += (5 - camera.position.z) * 0.1;
   light.position.x = camera.position.x;
   light.position.y = camera.position.y;
@@ -275,7 +258,7 @@ function gameLoop() {
     case 'initialize':
       maze = generateSquareMaze(mazeDimension);
       maze[mazeDimension - 1][mazeDimension - 2] = false;
-      createPhysicsWorld();
+      //createPhysicsWorld();
       createRenderWorld();
       light.intensity = 0;
       var level = Math.floor((mazeDimension - 1) / 2 - 4);
@@ -286,7 +269,6 @@ function gameLoop() {
     case 'fade in':
       light.intensity += 0.1 * (1.0 - light.intensity);
       renderer.render(scene, camera);
-
       if (Math.abs(light.intensity - 1.0) < 0.05) {
         light.intensity = 1.0;
         gameState = 'play';
@@ -295,8 +277,9 @@ function gameLoop() {
 
     case 'play':
       updateCameraPosition();
-      updatePhysicsWorld();
+      //updatePhysicsWorld();
       updateRenderWorld();
+      //scene.simulate(); // Run physics
       renderer.render(scene, camera);
 
       // Check for victory.
@@ -309,11 +292,9 @@ function gameLoop() {
       break;
 
     case 'fade out':
-      updatePhysicsWorld();
       updateRenderWorld();
       light.intensity += 0.1 * (0.0 - light.intensity);
       renderer.render(scene, camera);
-
       if (Math.abs(light.intensity - 0.0) < 0.1) {
         light.intensity = 0.0;
         renderer.render(scene, camera);
