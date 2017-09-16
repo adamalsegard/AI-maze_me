@@ -54,14 +54,14 @@ function createPhysicsWorld() {
 
   // Create materials
   var solidMaterial = new CANNON.Material({
-    friction: 0.3,
-    restitution: 0.5 // Studskoefficient
+    friction: 0.5,
+    restitution: 0.3 // Studskoefficient
   });
   var contactDef = new CANNON.ContactMaterial(
     solidMaterial,
     solidMaterial, 
     {
-      friction: 0.2,
+      friction: 0.5,
       restitution: 0.8,
     }
   );
@@ -214,12 +214,6 @@ var Key = {
  * UPDATE FUNCTIONS
  */
 function updatePhysicsWorld() {
-  // Apply "friction". - No need anymore
-  //var ballVelocity = new CANNON.Vec3();
-  //ballBody.getVelocityAtWorldPoint(ballBody.position, ballVelocity);
-  //ballVelocity.scale(0.95, ballVelocity);
-  //ballBody.velocity = ballVelocity;
-
   // Apply user-directed force.
   var inputForce = new CANNON.Vec3(
     keyAxis[0] * ballBody.mass * 0.25,
@@ -238,33 +232,11 @@ function updateRenderWorld() {
   ballMesh.position.copy(ballBody.position);
   ballMesh.quaternion.copy(ballBody.quaternion);
 
-  /*var stepX = wBall.GetPosition().x - ballMesh.position.x;
-  var stepY = wBall.GetPosition().y - ballMesh.position.y;
-  ballMesh.position.x += stepX;
-  ballMesh.position.y += stepY;
-
-  // Update ball rotation.
-  var tempMat = new THREE.Matrix4();
-  tempMat.makeRotationAxis(new THREE.Vector3(0, 1, 0), stepX / ballRadius);
-  tempMat.multiply(ballMesh.matrix);
-  ballMesh.matrix = tempMat;
-  tempMat = new THREE.Matrix4();
-  tempMat.makeRotationAxis(new THREE.Vector3(1, 0, 0), -stepY / ballRadius);
-  tempMat.multiply(ballMesh.matrix);
-  ballMesh.matrix = tempMat;
-  ballMesh.rotation.setFromRotationMatrix(ballMesh.matrix);
-  */
-
   // Update camera and light positions.
-  //camera.position.x += keyAxis[0] * 0.3;
-  //camera.position.y += keyAxis[1] * 0.3;
   camera.position.x += (ballMesh.position.x - camera.position.x) * 0.1;
   camera.position.y += (ballMesh.position.y - camera.position.y) * 0.1;
-  //camera.position.z += (5 - camera.position.z) * 0.1;
   light.position.x = camera.position.x;
   light.position.y = camera.position.y;
-  //light.position.z = camera.position.z - 3.7;
-  keyAxis = [0, 0];
 }
 
 /**
@@ -272,11 +244,13 @@ function updateRenderWorld() {
  */
 function gameLoop() {
   switch (gameState) {
+
     case 'initialize':
       maze = generateSquareMaze(mazeDimension);
       maze[mazeDimension - 1][mazeDimension - 2] = false;
       createPhysicsWorld();
       createRenderWorld();
+
       light.intensity = 0;
       var level = Math.floor((mazeDimension - 1) / 2 - 4);
       $('#level').html('Level ' + level);
@@ -332,6 +306,8 @@ function onResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
+  // Recenter instructions
+  $('#instructions').center();
 }
 
 jQuery.fn.centerv = function() {
