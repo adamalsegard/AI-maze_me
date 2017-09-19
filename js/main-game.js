@@ -33,7 +33,7 @@ var camera = undefined,
   groundMesh = undefined,
   intersectMeshes = undefined,
   intersectedObjectId = -1,
-  nrOfDifferentMaterials = 2;
+  nrOfDifferentMaterials = 2; // Remember to change in maze-generator as well!
 
 // Game parameters
 var energy = 0,
@@ -171,7 +171,17 @@ function create_maze_mesh(field) {
           var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
           maze_ij.name = 'bushLight';
           intersectMeshes.push(maze_ij);
-        } else if (field[i][j] == 2) {
+        } /*else if (field[i][j] == 2) {
+          var mazeMat = new THREE.MeshPhongMaterial({ map: bushMed1Texture });
+          var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
+          maze_ij.name = 'bushMed';
+          intersectMeshes.push(maze_ij);
+        } else if (field[i][j] == 3) {
+          var mazeMat = new THREE.MeshPhongMaterial({ map: bushDark1Texture });
+          var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
+          maze_ij.name = 'bushDark';
+          intersectMeshes.push(maze_ij);
+        }*/ else { // field[i][j] == nrOfDifferentMaterials
           var mazeMat = new THREE.MeshPhongMaterial({ map: brickTexture });
           var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
         }
