@@ -23,17 +23,21 @@ var camera = undefined,
   scene = undefined,
   renderer = undefined,
   light = undefined,
+  raycaster = undefined,
   gameState = undefined,
   mouseX = undefined,
   mouseY = undefined,
   maze = undefined,
   mazeMesh = undefined,
   ballMesh = undefined,
-  groundMesh = undefined;
+  groundMesh = undefined,
+  intersectMeshes = undefined,
+  intersectedObjectId = -1,
+  nrOfDifferentMaterials = 2;
 
 // Game parameters
 var energy = 0,
-  initEnergy = 10,
+  initEnergy = 100,
   score = 0,
   trainingRound = 1,
   completedLevelBonus = 0,
@@ -60,7 +64,13 @@ var gravel1Texture = textureLoader.load('./tex/gravel1.jpg'),
   brickTexture = textureLoader.load('./tex/brick.png'),
   waterLightTexture = textureLoader.load('./tex/water_light.jpg'),
   waterMedTexture = textureLoader.load('./tex/water_medium.png'),
-  waterDarkTexture = textureLoader.load('./tex/water_dark.png');
+  waterDarkTexture = textureLoader.load('./tex/water_dark.png'),
+  bushLightSub = 5,
+  bushMedSub = 10,
+  bushDarkSub = 15,
+  waterLightSub = 25,
+  waterMedSub = 35,
+  waterDarkSub = 45;
 
 // Physic body variables
 var globalWorld = undefined,
@@ -79,33 +89,57 @@ function createPhysicsWorld() {
   fixedTimeStep = 1.0 / 60.0;
 
   // Create materials
-  var solidMaterial = new CANNON.Material({
-    friction: 0.7,
+  var ballMaterial = new CANNON.Material({
+    friction: 0.4,
     restitution: 0.3 // Studskoefficient
   });
-  var contactDef = new CANNON.ContactMaterial(solidMaterial, solidMaterial, {
-    friction: 0.5,
+  var brickMaterial = new CANNON.Material({
+    friction: 0.2,
     restitution: 0.5
   });
-  globalWorld.addContactMaterial(contactDef);
+  var groundMaterial = new CANNON.Material({
+    friction: 0.7,
+    restitution: 0.1
+  });
+
+  // Define contact materials
+  var ballBrickContact = new CANNON.ContactMaterial(
+    ballMaterial,
+    brickMaterial,
+    {
+      friction: 0.2,
+      restitution: 0.6
+    }
+  );
+  globalWorld.addContactMaterial(ballBrickContact);
+  var ballGroundContact = new CANNON.ContactMaterial(
+    ballMaterial,
+    groundMaterial,
+    {
+      friction: 0.7,
+      restitution: 0.1
+    }
+  );
+  globalWorld.addContactMaterial(ballGroundContact);
 
   // Create the ball.
   ballBody = new CANNON.Body({
     mass: 1,
     position: ballInitPos,
     shape: new CANNON.Sphere(ballRadius),
-    material: solidMaterial
+    material: ballMaterial
   });
   globalWorld.addBody(ballBody);
 
   // Create the maze
   for (var i = 0; i < maze.dimension; i++) {
     for (var j = 0; j < maze.dimension; j++) {
-      if (maze[i][j]) {
+      // Check if we should place a solid body here
+      if (maze[i][j] == nrOfDifferentMaterials) {
         mazeBody = new CANNON.Body({
           mass: 10,
           shape: new CANNON.Box(new CANNON.Vec3(0.5, 0.5, 0.5)),
-          material: solidMaterial
+          material: brickMaterial
         });
         mazeBody.position.x = i;
         mazeBody.position.y = j;
@@ -119,19 +153,29 @@ function createPhysicsWorld() {
   groundBody = new CANNON.Body({
     mass: 0, // Static body
     shape: new CANNON.Plane(),
-    material: solidMaterial
+    material: groundMaterial
   });
   globalWorld.addBody(groundBody);
 }
 
 function create_maze_mesh(field) {
   var mazeGroup = new THREE.Group();
+  intersectMeshes = [];
   for (var i = 0; i < field.dimension; i++) {
     for (var j = 0; j < field.dimension; j++) {
-      if (field[i][j]) {
+      if (field[i][j] > 0) {
         var mazeGeo = new THREE.BoxGeometry(1, 1, 1);
-        var mazeMat = new THREE.MeshPhongMaterial({ map: brickTexture });
-        var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
+        // Check if mesh should be solid or not
+        if (field[i][j] == 1) {
+          var mazeMat = new THREE.MeshPhongMaterial({ map: bushLight1Texture });
+          var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
+          maze_ij.name = 'bushLight';
+          intersectMeshes.push(maze_ij);
+        } else if (field[i][j] == 2) {
+          var mazeMat = new THREE.MeshPhongMaterial({ map: brickTexture });
+          var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
+        }
+
         maze_ij.position.x = i;
         maze_ij.position.y = j;
         maze_ij.position.z = 0.5;
@@ -159,6 +203,9 @@ function createRenderWorld() {
   camera = new THREE.PerspectiveCamera(50, aspect, 1, 1000);
   camera.position.set(1, 1, 7);
   scene.add(camera);
+
+  // Create the raycaster
+  raycaster = new THREE.Raycaster();
 
   // Create the ball and add to scene.
   var ballGeo = new THREE.SphereGeometry(ballRadius, 32, 16);
@@ -259,6 +306,39 @@ function updateRenderWorld() {
   camera.position.y += (ballMesh.position.y - camera.position.y) * 0.1;
   light.position.x = camera.position.x;
   light.position.y = camera.position.y;
+
+  // Check for intersection with non-solid materials
+  raycaster.far = 0.5;
+  raycaster.set(ballMesh.position, new THREE.Vector3(1, 0, 0));
+  var intersections = raycaster.intersectObjects(intersectMeshes);
+  raycaster.set(ballMesh.position, new THREE.Vector3(-1, 0, 0));
+  intersections.push.apply(
+    intersections,
+    raycaster.intersectObjects(intersectMeshes)
+  );
+  raycaster.set(ballMesh.position, new THREE.Vector3(0, 1, 0));
+  intersections.push.apply(
+    intersections,
+    raycaster.intersectObjects(intersectMeshes)
+  );
+  raycaster.set(ballMesh.position, new THREE.Vector3(0, -1, 0));
+  intersections.push.apply(
+    intersections,
+    raycaster.intersectObjects(intersectMeshes)
+  );
+
+  intersections.sort();
+  if (
+    intersections.length > 0 &&
+    intersections[0].distance < ballRadius &&
+    intersections[0].object.id != intersectedObjectId
+  ) {
+    materialEntered(intersections[0].object.name);
+    intersectedObjectId = intersections[0].object.id; // TODO: Keep track of all visited ids?
+  } else if (intersections.length == 0) {
+    //intersectedObjectId = -1;
+    // TODO: rethink this!
+  }
 }
 
 function energySpent() {
@@ -273,6 +353,21 @@ function energySpent() {
   }
 }
 
+function materialEntered(materialType) {
+  // TODO: Animate
+  switch (materialType) {
+    case 'bushLight':
+      energy -= bushLightSub;
+      break;
+    case 'bushMed':
+      energy -= bushMedSub;
+      break;
+    case 'bushDark':
+      energy -= bushDarkSub;
+      break;
+  }
+}
+
 /**
  * MAIN GAME LOOP
  */
@@ -281,7 +376,6 @@ function gameLoop() {
     case 'initLevel':
       // Init maze field and use it for physics and rendering.
       maze = generateSquareMaze(mazeDimension);
-      maze[mazeDimension - 1][mazeDimension - 2] = false;
       createPhysicsWorld();
       createRenderWorld();
 
@@ -363,7 +457,7 @@ function gameLoop() {
     case 'victory':
       // Display score and 'Next level' button
       if (!displayed) {
-        completedLevelBonus += 100;
+        completedLevelBonus += 50;
         score += energy;
         $('#endTitle').html('You won!');
         $('#score').html('Total score: ' + score);
@@ -436,8 +530,9 @@ jQuery.fn.center = function() {
  */
 $(document).ready(function() {
   // Prepare the 'Instructions' window.
-  $('#instructions').center();
-  $('#instructions').hide();
+  $('#instructions')
+    .center()
+    .hide();
   keyboardJS.bind(
     'i',
     function() {
@@ -449,8 +544,9 @@ $(document).ready(function() {
   );
 
   // Prepare the 'Help' window.
-  $('#help').center();
-  $('#help').hide(); // TODO: show on reload?
+  $('#help')
+    .center()
+    .hide(); // TODO: show on reload?
   keyboardJS.bind(
     'h',
     function() {
@@ -460,7 +556,9 @@ $(document).ready(function() {
       $('#help').hide();
     }
   );
-  $('#game-ended').center().hide();
+  $('#game-ended')
+    .center()
+    .hide();
 
   // Create the WebGL renderer.
   renderer = new THREE.WebGLRenderer({ antialias: true });
