@@ -18,6 +18,7 @@ var textureLoader = new THREE.TextureLoader();
 /**
  * DECLARE VARIABLES
  */
+// Render variables
 var camera = undefined,
   scene = undefined,
   renderer = undefined,
@@ -28,16 +29,41 @@ var camera = undefined,
   maze = undefined,
   mazeMesh = undefined,
   ballMesh = undefined,
-  groundMesh = undefined,
+  groundMesh = undefined;
+
+// Game parameters
+var energy = 0,
+  initEnergy = 10,
+  score = 0,
+  trainingRound = 1,
+  completedLevelBonus = 0,
   mazeDimension = 11,
   ballRadius = 0.25,
+  ballInitPos = new CANNON.Vec3(1, 1, ballRadius),
+  lastPos = new CANNON.Vec3(),
   keyAxis = [0, 0],
-  // Load textures
-  groundTexture = textureLoader.load('./tex/gravel1.jpg'),
-  mazeTexture = textureLoader.load('./tex/bush_light1.jpg'),
+  displayed = false,
+  win = false;
+
+// Load textures
+var gravel1Texture = textureLoader.load('./tex/gravel1.jpg'),
+  gravel2Texture = textureLoader.load('./tex/gravel2.jpg'),
+  stoneTexture = textureLoader.load('./tex/stone.jpg'),
+  stoneRoadTexture = textureLoader.load('./tex/stone_road.jpg'),
+  bushLight1Texture = textureLoader.load('./tex/bush_light1.jpg'),
+  bushLight2Texture = textureLoader.load('./tex/bush_light2.jpg'),
+  bushMed1Texture = textureLoader.load('./tex/bush_med1.jpg'),
+  bushMed2Texture = textureLoader.load('./tex/bush_med2.jpg'),
+  bushDark1Texture = textureLoader.load('./tex/bush_dark1.png'),
+  bushDark2Texture = textureLoader.load('./tex/bush_dark2.jpg'),
   ballTexture = textureLoader.load('./tex/ball.png'),
-  // Physic body variables
-  globalWorld = undefined,
+  brickTexture = textureLoader.load('./tex/brick.png'),
+  waterLightTexture = textureLoader.load('./tex/water_light.jpg'),
+  waterMedTexture = textureLoader.load('./tex/water_medium.png'),
+  waterDarkTexture = textureLoader.load('./tex/water_dark.png');
+
+// Physic body variables
+var globalWorld = undefined,
   fixedTimeStep = undefined,
   ballBody = undefined,
   groundBody = undefined,
@@ -54,19 +80,19 @@ function createPhysicsWorld() {
 
   // Create materials
   var solidMaterial = new CANNON.Material({
-    friction: 0.5,
+    friction: 0.7,
     restitution: 0.3 // Studskoefficient
   });
   var contactDef = new CANNON.ContactMaterial(solidMaterial, solidMaterial, {
     friction: 0.5,
-    restitution: 0.8
+    restitution: 0.5
   });
   globalWorld.addContactMaterial(contactDef);
 
   // Create the ball.
   ballBody = new CANNON.Body({
     mass: 1,
-    position: new CANNON.Vec3(1, 1, ballRadius),
+    position: ballInitPos,
     shape: new CANNON.Sphere(ballRadius),
     material: solidMaterial
   });
@@ -104,7 +130,7 @@ function create_maze_mesh(field) {
     for (var j = 0; j < field.dimension; j++) {
       if (field[i][j]) {
         var mazeGeo = new THREE.BoxGeometry(1, 1, 1);
-        var mazeMat = new THREE.MeshPhongMaterial({ map: mazeTexture });
+        var mazeMat = new THREE.MeshPhongMaterial({ map: brickTexture });
         var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
         maze_ij.position.x = i;
         maze_ij.position.y = j;
@@ -138,7 +164,7 @@ function createRenderWorld() {
   var ballGeo = new THREE.SphereGeometry(ballRadius, 32, 16);
   var ballMat = new THREE.MeshPhongMaterial({ map: ballTexture });
   ballMesh = new THREE.Mesh(ballGeo, ballMat);
-  ballMesh.position.set(1, 1, ballRadius);
+  ballMesh.position.copy(ballInitPos);
   scene.add(ballMesh);
 
   // Create the maze and add to scene.
@@ -152,9 +178,9 @@ function createRenderWorld() {
     mazeDimension,
     mazeDimension
   );
-  groundTexture.wrapS = groundTexture.wrapT = THREE.RepeatWrapping;
-  groundTexture.repeat.set(mazeDimension * 5, mazeDimension * 5);
-  var groundMat = new THREE.MeshPhongMaterial({ map: groundTexture });
+  gravel1Texture.wrapS = gravel1Texture.wrapT = THREE.RepeatWrapping;
+  gravel1Texture.repeat.set(mazeDimension * 5, mazeDimension * 5);
+  var groundMat = new THREE.MeshPhongMaterial({ map: gravel1Texture });
   groundMesh = new THREE.Mesh(groundGeo, groundMat);
   groundMesh.position.set((mazeDimension - 1) / 2, (mazeDimension - 1) / 2, 0);
   groundMesh.receiveShadow = true;
@@ -235,32 +261,55 @@ function updateRenderWorld() {
   light.position.y = camera.position.y;
 }
 
+function energySpent() {
+  // Calculate distance moved since last frame
+  var moved = ballBody.position.vsub(lastPos);
+  // TODO: only return if moved move than one square?
+  if (moved.length() > 1.0) {
+    lastPos.copy(ballBody.position);
+    return Math.floor(moved.length());
+  } else {
+    return 0;
+  }
+}
+
 /**
  * MAIN GAME LOOP
  */
 function gameLoop() {
   switch (gameState) {
-    case 'initialize':
+    case 'initLevel':
+      // Init maze field and use it for physics and rendering.
       maze = generateSquareMaze(mazeDimension);
       maze[mazeDimension - 1][mazeDimension - 2] = false;
       createPhysicsWorld();
       createRenderWorld();
 
+      // Game parameters
+      energy = initEnergy + completedLevelBonus;
+      lastPos.copy(ballInitPos);
+      // TODO: Init AI agents view
+
       // TODO: Init map over entire maze
       //$('#maze-map').hide();
 
+      // Update static display metrics
       light.intensity = 0;
       var level = Math.floor((mazeDimension - 1) / 2 - 4);
       $('#level').html('Level ' + level);
       $('#maze-size').html('Maze size: ' + mazeDimension);
-      //$('#training-round').html('Training round: ' + trainingRound); // TODO
-      gameState = 'fade in';
+      $('#training-round').html('Training round: ' + trainingRound); // TODO: implement
+      $('#energy-left').html('Energy left: ' + energy);
+      displayed = false;
+
+      // Switch game state
+      gameState = 'fadeIn';
       break;
 
-    case 'fade in':
+    case 'fadeIn':
+      // Fade in before play starts
       light.intensity += 0.1 * (1.0 - light.intensity);
       renderer.render(scene, camera);
-
       if (Math.abs(light.intensity - 1.0) < 0.05) {
         light.intensity = 1.0;
         gameState = 'play';
@@ -268,6 +317,7 @@ function gameLoop() {
       break;
 
     case 'play':
+      // Game loop, update all dynamic metrics.
       updateCameraPosition();
       updatePhysicsWorld();
       updateRenderWorld();
@@ -275,27 +325,70 @@ function gameLoop() {
 
       // Update energy window.
       // TODO: make some animation when energy declines!
-      //$('#energy-left').html('Energy left: ' + energy);
+      energy -= energySpent();
+      $('#energy-left').html('Energy left: ' + energy);
+
+      // Check for loss
+      if (energy <= 0) {
+        win = false;
+        gameState = 'fadeOut';
+      }
 
       // Check for victory.
       var mazeX = Math.floor(ballMesh.position.x + 0.5);
       var mazeY = Math.floor(ballMesh.position.y + 0.5);
       if (mazeX == mazeDimension && mazeY == mazeDimension - 2) {
         mazeDimension += 2;
-        gameState = 'fade out';
+        win = true;
+        gameState = 'fadeOut';
       }
       break;
 
-    case 'fade out':
+    case 'fadeOut':
       updatePhysicsWorld();
       updateRenderWorld();
       light.intensity += 0.1 * (0.0 - light.intensity);
       renderer.render(scene, camera);
-
       if (Math.abs(light.intensity - 0.0) < 0.1) {
         light.intensity = 0.0;
         renderer.render(scene, camera);
-        gameState = 'initialize';
+        if (win) {
+          gameState = 'victory';
+        } else {
+          gameState = 'loss';
+        }
+      }
+      break;
+
+    case 'victory':
+      // Display score and 'Next level' button
+      if (!displayed) {
+        completedLevelBonus += 100;
+        score += energy;
+        $('#endTitle').html('You won!');
+        $('#score').html('Total score: ' + score);
+        $('#restartBtn').html('Play next level');
+        $('#restartBtn').click(() => {
+          $('#game-ended').hide();
+          gameState = 'initLevel';
+        });
+        $('#game-ended').show();
+        displayed = true;
+      }
+      break;
+
+    case 'loss':
+      // Display score and 'Restart' button
+      if (!displayed) {
+        $('#endTitle').html('You lost!');
+        $('#score').html('Total score: ' + score);
+        $('#restartBtn').html('Restart level');
+        $('#restartBtn').click(() => {
+          $('#game-ended').hide();
+          gameState = 'initLevel';
+        });
+        $('#game-ended').show();
+        displayed = true;
       }
       break;
   }
@@ -313,6 +406,7 @@ function onResize() {
   // Recenter instructions
   $('#instructions').center();
   $('#help').center();
+  $('#game-ended').center();
 }
 
 jQuery.fn.centerv = function() {
@@ -366,6 +460,7 @@ $(document).ready(function() {
       $('#help').hide();
     }
   );
+  $('#game-ended').center().hide();
 
   // Create the WebGL renderer.
   renderer = new THREE.WebGLRenderer({ antialias: true });
@@ -393,8 +488,8 @@ $(document).ready(function() {
   );
   $(window).resize(onResize);
 
-  // Set the initial game state.
-  gameState = 'initialize';
+  // Start first game level.
+  gameState = 'initLevel';
 
   // Start the game loop.
   requestAnimationFrame(gameLoop);

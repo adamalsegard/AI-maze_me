@@ -11,7 +11,7 @@ h4 {
 }
 
 /* Pop-up window, centered */
-#help {
+.centeredPopUp {
   background-color: rgba(0, 0, 0, 0.75);
   color: white;
   text-align: center;
@@ -21,20 +21,10 @@ h4 {
   border: 2px solid white;
 }
 
+/* Text inside help pop-up*/
 #help-keys {
   padding-left: 15em;
   text-align: left;
-}
-
-/* Pop-up window, centered */
-#instructions {
-  background-color: rgba(0, 0, 0, 0.75);
-  color: white;
-  text-align: center;
-  padding: 2em;
-  margin: 0px;
-  display: inline;
-  border: 2px solid white;
 }
 
 /* Bottom-left corner */
@@ -43,7 +33,7 @@ h4 {
   left: 1vw;
   bottom: 1vw;
   padding: 1vh;
-  color: #A0A0A0;
+  color: #a0a0a0;
   display: block;
   border: 2px solid #636363;
   background-color: rgba(43, 43, 43, 0.75);
@@ -55,7 +45,7 @@ h4 {
   left: 1vw;
   top: 1vw;
   padding: 1vh;
-  color: #A0A0A0;
+  color: #a0a0a0;
   display: block;
   border: 2px solid #636363;
   background-color: rgba(43, 43, 43, 0.75);
@@ -66,8 +56,8 @@ h4 {
   position: absolute;
   right: 1vw;
   top: 1vw;
-  padding: 1vh; 
-  color: #A0A0A0;
+  padding: 1vh;
+  color: #a0a0a0;
   border: 2px solid #636363;
   background-color: rgba(43, 43, 43, 0.75);
 }
@@ -78,7 +68,25 @@ h4 {
   right: 1vw;
   bottom: 1vw;
   padding: 1vh;
-  color: #A0A0A0;
+  color: #a0a0a0;
   border: 2px solid #636363;
   background-color: rgba(43, 43, 43, 0.75);
+}
+
+#restartBtn {
+  background-color: #a0a0a0;
+  color: black;
+  border: none;
+  padding: 12px 24px;
+  text-align: center;
+  text-decoration: none;
+  display: inline-block;
+  -webkit-transition-duration: 0.2s; /* Safari */
+  transition-duration: 0.2s;
+  cursor: pointer;
+}
+
+#restartBtn:hover {
+  background-color: #474747;
+  color: white;
 }
