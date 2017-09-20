@@ -388,14 +388,14 @@ function gameLoop() {
       maze = generateSquareMaze(mazeDimension);
       createPhysicsWorld();
       createRenderWorld();
-
+      
       // Game parameters
       energy = initEnergy + completedLevelBonus;
       lastPos.copy(ballInitPos);
       // TODO: Init AI agents view
 
-      // TODO: Init map over entire maze
-      //$('#maze-map').hide();
+      // Init map over entire maze
+      createMap(maze);
 
       // Update static display metrics
       light.intensity = 0;
@@ -426,6 +426,9 @@ function gameLoop() {
       updatePhysicsWorld();
       updateRenderWorld();
       renderer.render(scene, camera);
+
+      // Update Map view
+      updateMap();
 
       // Update energy window.
       // TODO: make some animation when energy declines!
@@ -575,7 +578,6 @@ $(document).ready(function() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   // Enable shadows
   renderer.shadowMap.enabled = true;
-  //renderer.shadowMapSoft = true; // TODO: Which one!?
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   document.body.appendChild(renderer.domElement);
 
