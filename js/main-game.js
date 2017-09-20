@@ -171,7 +171,8 @@ function create_maze_mesh(field) {
           var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
           maze_ij.name = 'bushLight';
           intersectMeshes.push(maze_ij);
-        } /*else if (field[i][j] == 2) {
+        } else {
+          /*else if (field[i][j] == 2) {
           var mazeMat = new THREE.MeshPhongMaterial({ map: bushMed1Texture });
           var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
           maze_ij.name = 'bushMed';
@@ -181,7 +182,7 @@ function create_maze_mesh(field) {
           var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
           maze_ij.name = 'bushDark';
           intersectMeshes.push(maze_ij);
-        }*/ else { // field[i][j] == nrOfDifferentMaterials
+        }*/ // field[i][j] == nrOfDifferentMaterials
           var mazeMat = new THREE.MeshPhongMaterial({ map: brickTexture });
           var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
         }
@@ -356,6 +357,7 @@ function energySpent() {
   var moved = ballBody.position.vsub(lastPos);
   // TODO: only return if moved move than one square?
   if (moved.length() > 1.0) {
+    updateLinePath()
     lastPos.copy(ballBody.position);
     return Math.floor(moved.length());
   } else {
@@ -388,7 +390,7 @@ function gameLoop() {
       maze = generateSquareMaze(mazeDimension);
       createPhysicsWorld();
       createRenderWorld();
-      
+
       // Game parameters
       energy = initEnergy + completedLevelBonus;
       lastPos.copy(ballInitPos);
@@ -572,6 +574,16 @@ $(document).ready(function() {
   $('#game-ended')
     .center()
     .hide();
+
+  // Prepare the 'Map' window.
+  $('#maze-map').hide();
+  keyboardJS.bind('m', function() {
+    if ($('#maze-map').is(':visible')) {
+      $('#maze-map').hide();
+    } else {
+      $('#maze-map').show();
+    }
+  });
 
   // Create the WebGL renderer.
   renderer = new THREE.WebGLRenderer({ antialias: true });
