@@ -56,7 +56,7 @@ function fetchOldAgent(agentToUse) {
 function initAgent(trainAI, maze, ballInitPos, mazeDimension) {
   // Set parameters for this iteration.
   isTraining = trainAI;
-  goalPos = new THREE.Vector2(mazeDimension, mazeDimension - 2);
+  goalPos = new THREE.Vector2(mazeDimension-1, mazeDimension - 2);
   currentPos.copy(ballInitPos);
   currentMaze = maze.map(arr => {
     return arr.slice();
@@ -192,10 +192,10 @@ function getBestMove(state) {
 
 // Return true if this was a valid move (i.e. didn't bring us into a wall).
 function isValidMove(pos) {
-  if (currentMaze[pos.x][pos.y] == 2) {
-    return false;
-  } else {
+  if (pos.equals(goalPos) || currentMaze[pos.x][pos.y] != 2) {
     return true;
+  } else {
+    return false;
   }
 }
 
@@ -203,7 +203,7 @@ function isValidMove(pos) {
 function getReward(pos) {
   // Check if we've reached the goal.
   if (pos.equals(goalPos)) {
-    // Use distanceTo istället?
+    // TODO: Use distanceTo istället?
     return 100;
   } else if (
     pos.x < 1 ||
@@ -247,7 +247,7 @@ function getFreeSquares(direction) {
     return 0;
   }
   newPos.add(direction);
-  while (currentMaze[newPos.x][newPos.y] == 0) {
+  while (currentMaze[newPos.x][newPos.y] == 0 && newPos.x < currentMaze.length - 1) {
     free++;
     newPos.add(direction);
   }
@@ -268,7 +268,7 @@ function getMaterialAtEnd(direction) {
   }
   do {
     newPos.add(direction);
-  } while (currentMaze[newPos.x][newPos.y] == 0);
+  } while (currentMaze[newPos.x][newPos.y] == 0 && newPos.x < currentMaze.length - 1);
   return currentMaze[newPos.x][newPos.y];
 }
 

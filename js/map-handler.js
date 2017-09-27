@@ -6,7 +6,7 @@ var mapCamera = undefined,
   mapBall = undefined,
   mapLine = undefined,
   lineVertices = undefined,
-  MAX_POINTS = 500,
+  MAX_POINTS = 5000,
   nrOfPointsToDraw = 1,
   vertIndex = 0;
 

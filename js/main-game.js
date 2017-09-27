@@ -51,7 +51,7 @@ var energy = 0,
   keyAxis = [0, 0],
   nextStepAI = new THREE.Vector2(0, 0),
   iter = 0,
-  framesPerStep = 60.0, // TODO: Use this to speed up/down the training!
+  framesPerStep = 10, // TODO: Change back to 60!
   displayed = false,
   win = false;
 
@@ -92,7 +92,7 @@ function createPhysicsWorld() {
   // Create the physics world object.
   globalWorld = new CANNON.World();
   globalWorld.gravity.set(0, 0, -9.82);
-  fixedTimeStep = 1.0 / framesPerStep;
+  fixedTimeStep = Math.round(1000.0 / framesPerStep) / 1000;
 
   // Create materials
   var ballMaterial = new CANNON.Material({
@@ -373,10 +373,10 @@ function energySpent() {
   var moved = ballBody.position.vsub(lastPos);
 
   // Only return if moved move than one square!
-  if (moved.length() > 0.9) {
+  if (moved.length() >= 1.0) {
     updateLinePath();
     lastPos.copy(ballBody.position);
-    return Math.floor(moved.length());
+    return Math.round(moved.length());
   } else {
     return 0;
   }
@@ -477,6 +477,8 @@ function gameLoop() {
       // TODO: make some animation when energy declines!
       energy -= energySpent();
       $('#energy-left').html('Energy left: ' + energy);
+      $('#framesPerStep').html('framesPerStep: ' + framesPerStep);
+      $('#fixedTimeStep').html('fixedTimeStep: ' + fixedTimeStep);
 
       // Check for loss
       if (energy <= 0) {
@@ -488,7 +490,6 @@ function gameLoop() {
       var mazeX = Math.floor(ballMesh.position.x + 0.5);
       var mazeY = Math.floor(ballMesh.position.y + 0.5);
       if (mazeX == mazeDimension && mazeY == mazeDimension - 2) {
-        mazeDimension += 2;
         win = true;
         gameState = 'fadeOut';
       }
@@ -508,6 +509,7 @@ function gameLoop() {
           gameState = 'initLevel';
         } else if (win) {
           gameState = 'victory';
+          mazeDimension += 2;
         } else {
           gameState = 'loss';
         }
@@ -701,6 +703,20 @@ $(document).ready(function() {
     if(gameMode == 'ai'){
       agentToUse = saveAgent();
     }
+  });
+
+  // Bind '+' key to Increase training speed.
+  keyboardJS.bind('+', function() {
+    console.log("+");
+    framesPerStep -= 10;
+    fixedTimeStep = Math.round(1000.0 / framesPerStep) / 1000;
+  });
+
+  // Bind '-' key to Decrease training speed.
+  keyboardJS.bind('-', function() {
+    console.log("-");
+    framesPerStep += 10;
+    fixedTimeStep = Math.round(1000.0 / framesPerStep) / 1000;
   });
 
   // Create the WebGL renderer.
