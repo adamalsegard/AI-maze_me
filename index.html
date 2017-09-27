@@ -66,6 +66,23 @@
         <button id="restartBtn">Restart</button>
     </div>
 
+    <div id="ai-mode-info" class="centeredPopUp">
+        <h3>AI agent mode</h3>
+        <p>This mode will automatically play a game with the newest agent.</p>
+        <p>To start a new training session for a new agent click 'N'.</p>
+        <p>To continue the training session for this agent click 'C'.</p>
+        <p>To switch to manual player mode click 'P'.</p>
+        <button id="start-ai">Start game</button>
+    </div>
+
+    <div id="manual-mode-info" class="centeredPopUp">
+        <h3>Manual player mode</h3>
+        <p>In this mode the balls move from user input.</p>
+        <p>To show instructions press 'I'</p>
+        <p>To switch to AI agent mode click 'A'.</p>
+        <button id="start-manual">Start game</button>
+    </div>
+
     <!-- Imported scripts -->
     <script src="js/Detector.js"></script>
     <script src="js/keyboard.min.js"></script>
@@ -76,6 +93,7 @@
     <!-- My logic-->
     <script src="js/maze-generator.js"></script>
     <script src="js/map-handler.js"></script>
+    <script src="js/ai-agent.js"></script>
     <script src="js/main-game.js"></script>
 </body>
 

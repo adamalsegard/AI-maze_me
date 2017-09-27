@@ -25,6 +25,10 @@ var camera = undefined,
   light = undefined,
   raycaster = undefined,
   gameState = undefined,
+  gameMode = undefined,
+  agentToUse = 0,
+  trainAI = false,
+  maxTraining = 1000,
   mouseX = undefined,
   mouseY = undefined,
   maze = undefined,
@@ -37,15 +41,17 @@ var camera = undefined,
 
 // Game parameters
 var energy = 0,
-  initEnergy = 100,
+  initEnergy = 1000,
   score = 0,
-  trainingRound = 1,
   completedLevelBonus = 0,
   mazeDimension = 11,
   ballRadius = 0.25,
   ballInitPos = new CANNON.Vec3(1, 1, ballRadius),
   lastPos = new CANNON.Vec3(),
   keyAxis = [0, 0],
+  nextStepAI = new THREE.Vector2(0, 0),
+  iter = 0,
+  framesPerStep = 60.0, // TODO: Use this to speed up/down the training!
   displayed = false,
   win = false;
 
@@ -86,7 +92,7 @@ function createPhysicsWorld() {
   // Create the physics world object.
   globalWorld = new CANNON.World();
   globalWorld.gravity.set(0, 0, -9.82);
-  fixedTimeStep = 1.0 / 60.0;
+  fixedTimeStep = 1.0 / framesPerStep;
 
   // Create materials
   var ballMaterial = new CANNON.Material({
@@ -205,8 +211,8 @@ function createRenderWorld() {
 
   // Create the light.
   light = new THREE.PointLight(0xffffff, 1, 15, 2);
-  light.position.set(1, 1, 1.5);
-  light.castShadow = false; // TODO: Change back when I've fixed the scene
+  light.position.set(1, 1, 1.5); // FOR SHADOWS: Change to 1.1
+  light.castShadow = false; // FOR SHADOWS: Change to true
   scene.add(light);
 
   // Create the camera.
@@ -294,14 +300,24 @@ var Key = {
  * UPDATE FUNCTIONS
  */
 function updatePhysicsWorld() {
-  // Apply user-directed force.
-  var inputForce = new CANNON.Vec3(
-    keyAxis[0] * ballBody.mass * 0.25,
-    keyAxis[1] * ballBody.mass * 0.25,
-    0.0
-  );
-  ballBody.applyImpulse(inputForce, ballBody.position);
-  keyAxis = [0, 0];
+  if (gameMode == 'manual') {
+    // Apply user-directed force.
+    var inputForce = new CANNON.Vec3(
+      keyAxis[0] * ballBody.mass * 0.25,
+      keyAxis[1] * ballBody.mass * 0.25,
+      0.0
+    );
+    ballBody.applyImpulse(inputForce, ballBody.position);
+    keyAxis = [0, 0];
+  } else if (gameMode == 'ai') {
+    // Update ballBody position with fixed step in direction AI agent choose
+    var addVector = new CANNON.Vec3(
+      nextStepAI.x * fixedTimeStep,
+      nextStepAI.y * fixedTimeStep,
+      0.0
+    );
+    ballBody.position.vadd(addVector, ballBody.position);
+  }
 
   // Take a time step.
   globalWorld.step(fixedTimeStep);
@@ -355,9 +371,10 @@ function updateRenderWorld() {
 function energySpent() {
   // Calculate distance moved since last frame
   var moved = ballBody.position.vsub(lastPos);
-  // TODO: only return if moved move than one square?
-  if (moved.length() > 1.0) {
-    updateLinePath()
+
+  // Only return if moved move than one square!
+  if (moved.length() > 0.9) {
+    updateLinePath();
     lastPos.copy(ballBody.position);
     return Math.floor(moved.length());
   } else {
@@ -394,7 +411,17 @@ function gameLoop() {
       // Game parameters
       energy = initEnergy + completedLevelBonus;
       lastPos.copy(ballInitPos);
-      // TODO: Init AI agents view
+
+      // Init AI agent
+      if (gameMode == 'ai') {
+        initAgent(trainAI, maze, ballInitPos, mazeDimension);
+        ballBody.mass = 0;
+        ballBody.updateMassProperties();
+        ballBody.velocity.set(0,0,0); 
+        ballBody.angularVelocity.set(0,0,0);
+      } else {
+        ballBody.mass = 1;
+      }
 
       // Init map over entire maze
       createMap(maze);
@@ -404,7 +431,7 @@ function gameLoop() {
       var level = Math.floor((mazeDimension - 1) / 2 - 4);
       $('#level').html('Level ' + level);
       $('#maze-size').html('Maze size: ' + mazeDimension);
-      $('#training-round').html('Training round: ' + trainingRound); // TODO: implement
+      $('#training-round').html('Training round: ' + getTrainingRound());
       $('#energy-left').html('Energy left: ' + energy);
       displayed = false;
 
@@ -423,8 +450,22 @@ function gameLoop() {
       break;
 
     case 'play':
+      if (gameMode == 'manual') {
+        // Update camera from user input.
+        updateCameraPosition();
+      } else if (gameMode == 'ai') {
+        // Update AI input and parameters.
+        if(iter % framesPerStep == 0){
+          // Get next step for AI, this will also update the Q-table if we are in a training session.
+          nextStepAI = getNextAIStep();
+          iter = 0;
+        }
+        iter++;
+      } else {
+        // gameMode is undefined, pause everything!
+      }
+
       // Game loop, update all dynamic metrics.
-      updateCameraPosition();
       updatePhysicsWorld();
       updateRenderWorld();
       renderer.render(scene, camera);
@@ -461,7 +502,11 @@ function gameLoop() {
       if (Math.abs(light.intensity - 0.0) < 0.1) {
         light.intensity = 0.0;
         renderer.render(scene, camera);
-        if (win) {
+        
+        if(gameMode == 'ai' && trainAI && getTrainingRound() < maxTraining){
+          roundEnded(energy);
+          gameState = 'initLevel';
+        } else if (win) {
           gameState = 'victory';
         } else {
           gameState = 'loss';
@@ -477,10 +522,6 @@ function gameLoop() {
         $('#endTitle').html('You won!');
         $('#score').html('Total score: ' + score);
         $('#restartBtn').html('Play next level');
-        $('#restartBtn').click(() => {
-          $('#game-ended').hide();
-          gameState = 'initLevel';
-        });
         $('#game-ended').show();
         displayed = true;
       }
@@ -492,10 +533,6 @@ function gameLoop() {
         $('#endTitle').html('You lost!');
         $('#score').html('Total score: ' + score);
         $('#restartBtn').html('Restart level');
-        $('#restartBtn').click(() => {
-          $('#game-ended').hide();
-          gameState = 'initLevel';
-        });
         $('#game-ended').show();
         displayed = true;
       }
@@ -516,6 +553,8 @@ function onResize() {
   $('#instructions').center();
   $('#help').center();
   $('#game-ended').center();
+  $('#ai-mode-info').center();
+  $('#manual-mode-info').center();
 }
 
 jQuery.fn.centerv = function() {
@@ -540,11 +579,36 @@ jQuery.fn.center = function() {
   return this;
 };
 
+// Bind html button functions.
+$('#start-ai').click(() => {
+  // Hide pop up on click, save possible 
+  $('#ai-mode-info').hide();
+  // TODO: Let user decide what agent to use + display possible numbers
+  // fetchOldAgent(chosenNumber);
+  createNewAgent(); // TODO: Remove later 
+  trainAI = true; // Change to false!
+  gameMode = 'ai';
+  gameState = 'initLevel';
+});
+
+$('#start-manual').click(() => {
+  // Hide pop up on click and save any possible AI agents if training was in session!
+  $('#manual-mode-info').hide();
+  saveAgent();
+  gameMode = 'manual';
+  gameState = 'initLevel';
+});
+
+$('#restartBtn').click(() => {
+  $('#game-ended').hide();
+  gameState = 'initLevel';
+});
+
 /**
  * MAIN (LOAD) FUNCTION
  */
 $(document).ready(function() {
-  // Prepare the 'Instructions' window.
+  // Prepare the 'Instructions' window. Bind 'I' key to hide/show window.
   $('#instructions')
     .center()
     .hide();
@@ -558,10 +622,10 @@ $(document).ready(function() {
     }
   );
 
-  // Prepare the 'Help' window.
+  // Prepare the 'Help' window. Bind 'H' key to hide/show window.
   $('#help')
     .center()
-    .hide(); // TODO: show on reload?
+    .hide();
   keyboardJS.bind(
     'h',
     function() {
@@ -575,13 +639,67 @@ $(document).ready(function() {
     .center()
     .hide();
 
-  // Prepare the 'Map' window.
+  // Prepare the 'Map' window. Bind 'M' key to hide/show map.
   $('#maze-map').hide();
   keyboardJS.bind('m', function() {
     if ($('#maze-map').is(':visible')) {
       $('#maze-map').hide();
     } else {
       $('#maze-map').show();
+    }
+  });
+
+  // Bind 'A' key to 'AI Mode'. Start by default.
+  $('#ai-mode-info').center();
+  keyboardJS.bind('a', function() {
+    if (gameMode != 'ai') {
+      // Show pop up with info and switch to start AI agent loop.
+      gameMode = undefined;
+      $('#manual-mode-info').hide();
+      $('#ai-mode-info').show();
+    }
+  });
+
+  // Bind 'P' key to 'Manual Player Mode'.
+  $('#manual-mode-info')
+    .center()
+    .hide();
+  keyboardJS.bind('p', function() {
+    if (gameMode != 'manual') {
+      // Show pop up with info and switch to start Manual player loop.
+      gameMode = undefined;
+      $('#ai-mode-info').hide();
+      $('#manual-mode-info').show();
+    }
+  });
+
+  // Bind 'N' key to New training session.
+  keyboardJS.bind('n', function() {
+    // Hide (eventually) open windows
+    $('#ai-mode-info').hide();
+    $('#manual-mode-info').hide();
+
+    // Start new AI agent traning session.
+    gameMode = 'ai';
+    createNewAgent();
+    trainAI = true;
+    gameState = 'initLevel';
+  });
+
+  // Bind 'C' key to Continue training session.
+  keyboardJS.bind('c', function() {
+    // Continue training session for this AI agent.
+    if(gameMode == 'ai'){
+      trainAI = true;
+      gameState = 'initLevel';
+    }
+  });
+
+  // Bind 'S' key to Save current Ai AGENT.
+  keyboardJS.bind('s', function() {
+    // Save Q-values for this AI agent.
+    if(gameMode == 'ai'){
+      agentToUse = saveAgent();
     }
   });
 
@@ -610,7 +728,7 @@ $(document).ready(function() {
   );
   $(window).resize(onResize);
 
-  // Start first game level.
+  // Init first level.
   gameState = 'initLevel';
 
   // Start the game loop.
