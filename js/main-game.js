@@ -28,7 +28,8 @@ var camera = undefined,
   gameMode = undefined,
   agentToUse = 0,
   trainAI = false,
-  maxTraining = 1000,
+  stepsTaken = 0,
+  maxTraining = 200,
   mouseX = undefined,
   mouseY = undefined,
   maze = undefined,
@@ -41,10 +42,10 @@ var camera = undefined,
 
 // Game parameters
 var energy = 0,
-  initEnergy = 1000,
+  initEnergy = 100,
   score = 0,
   completedLevelBonus = 0,
-  mazeDimension = 11,
+  mazeDimension = 7,
   ballRadius = 0.25,
   ballInitPos = new CANNON.Vec3(1, 1, ballRadius),
   lastPos = new CANNON.Vec3(),
@@ -92,7 +93,7 @@ function createPhysicsWorld() {
   // Create the physics world object.
   globalWorld = new CANNON.World();
   globalWorld.gravity.set(0, 0, -9.82);
-  fixedTimeStep = Math.round(1000.0 / framesPerStep) / 1000;
+  fixedTimeStep = 1.0 / framesPerStep;
 
   // Create materials
   var ballMaterial = new CANNON.Material({
@@ -417,8 +418,8 @@ function gameLoop() {
         initAgent(trainAI, maze, ballInitPos, mazeDimension);
         ballBody.mass = 0;
         ballBody.updateMassProperties();
-        ballBody.velocity.set(0,0,0); 
-        ballBody.angularVelocity.set(0,0,0);
+        ballBody.velocity.set(0, 0, 0);
+        ballBody.angularVelocity.set(0, 0, 0);
       } else {
         ballBody.mass = 1;
       }
@@ -455,10 +456,11 @@ function gameLoop() {
         updateCameraPosition();
       } else if (gameMode == 'ai') {
         // Update AI input and parameters.
-        if(iter % framesPerStep == 0){
+        if (iter % framesPerStep == 0) {
           // Get next step for AI, this will also update the Q-table if we are in a training session.
           nextStepAI = getNextAIStep();
           iter = 0;
+          stepsTaken++;
         }
         iter++;
       } else {
@@ -473,25 +475,37 @@ function gameLoop() {
       // Update Map view
       updateMap();
 
-      // Update energy window.
-      // TODO: make some animation when energy declines!
-      energy -= energySpent();
-      $('#energy-left').html('Energy left: ' + energy);
+      // Update info
       $('#framesPerStep').html('framesPerStep: ' + framesPerStep);
-      $('#fixedTimeStep').html('fixedTimeStep: ' + fixedTimeStep);
+      $('#fixedTimeStep').html(
+        'fixedTimeStep: ' + Math.round(1000.0 * fixedTimeStep) / 1000
+      );
 
-      // Check for loss
-      if (energy <= 0) {
-        win = false;
-        gameState = 'fadeOut';
-      }
+      // If we are in a training session we want to continue until max iterations, so we can learn even after we reach the goal state.
+      if (trainAI) {
+        if (stepsTaken > maxTraining) {
+          stepsTaken = 0;
+          gameState = 'fadeOut';
+        }
+      } else {
+        // TODO: make some animation when energy declines!
+        // Update energy window.
+        energy -= energySpent();
+        $('#energy-left').html('Energy left: ' + energy);
 
-      // Check for victory.
-      var mazeX = Math.floor(ballMesh.position.x + 0.5);
-      var mazeY = Math.floor(ballMesh.position.y + 0.5);
-      if (mazeX == mazeDimension && mazeY == mazeDimension - 2) {
-        win = true;
-        gameState = 'fadeOut';
+        // Check for loss
+        if (energy <= 0) {
+          win = false;
+          gameState = 'fadeOut';
+        }
+
+        // Check for victory.
+        var mazeX = Math.floor(ballMesh.position.x + 0.5);
+        var mazeY = Math.floor(ballMesh.position.y + 0.5);
+        if (mazeX == mazeDimension && mazeY == mazeDimension - 2) {
+          win = true;
+          gameState = 'fadeOut';
+        }
       }
       break;
 
@@ -503,8 +517,11 @@ function gameLoop() {
       if (Math.abs(light.intensity - 0.0) < 0.1) {
         light.intensity = 0.0;
         renderer.render(scene, camera);
-        
-        if(gameMode == 'ai' && trainAI && getTrainingRound() < maxTraining){
+
+        // If we're in a training state then just save and restart, else check for victory or loss!
+        if (trainAI) {
+          // If we've trainged 100 sessions on the same size then maybe it's time to increase!
+          if (getTrainingRound() % 100 == 0) mazeDimension += 2;
           roundEnded(energy);
           gameState = 'initLevel';
         } else if (win) {
@@ -583,12 +600,13 @@ jQuery.fn.center = function() {
 
 // Bind html button functions.
 $('#start-ai').click(() => {
-  // Hide pop up on click, save possible 
+  // Hide pop up on click, save possible
   $('#ai-mode-info').hide();
   // TODO: Let user decide what agent to use + display possible numbers
-  // fetchOldAgent(chosenNumber);
-  createNewAgent(); // TODO: Remove later 
-  trainAI = true; // Change to false!
+  var numberOfAgents = getNumberOfAgents();
+  agentToUse = numberOfAgents > 0 ? numberOfAgents - 1 : 0;
+  fetchOldAgent(agentToUse);
+  trainAI = true; // Change to false when we have an agent that actually can play!
   gameMode = 'ai';
   gameState = 'initLevel';
 });
@@ -691,7 +709,7 @@ $(document).ready(function() {
   // Bind 'C' key to Continue training session.
   keyboardJS.bind('c', function() {
     // Continue training session for this AI agent.
-    if(gameMode == 'ai'){
+    if (gameMode == 'ai') {
       trainAI = true;
       gameState = 'initLevel';
     }
@@ -700,23 +718,23 @@ $(document).ready(function() {
   // Bind 'S' key to Save current Ai AGENT.
   keyboardJS.bind('s', function() {
     // Save Q-values for this AI agent.
-    if(gameMode == 'ai'){
+    if (gameMode == 'ai') {
       agentToUse = saveAgent();
     }
   });
 
   // Bind '+' key to Increase training speed.
   keyboardJS.bind('+', function() {
-    console.log("+");
+    //console.log('+');
     framesPerStep -= 10;
-    fixedTimeStep = Math.round(1000.0 / framesPerStep) / 1000;
+    fixedTimeStep = 1.0 / framesPerStep;
   });
 
   // Bind '-' key to Decrease training speed.
   keyboardJS.bind('-', function() {
-    console.log("-");
+    //console.log('-');
     framesPerStep += 10;
-    fixedTimeStep = Math.round(1000.0 / framesPerStep) / 1000;
+    fixedTimeStep = 1.0 / framesPerStep;
   });
 
   // Create the WebGL renderer.

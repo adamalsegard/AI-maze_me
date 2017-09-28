@@ -2,9 +2,11 @@
  * VARIABLE DECLARATION
  */
 var trainingRound = 0,
+  agentIndex = 0,
+  allAgents = [],
+  bestScore = 0,
   isTraining = undefined,
   qTable = undefined,
-  weights = undefined,
   features = undefined,
   currentMaze = [],
   visitedMaze = undefined,
@@ -13,7 +15,7 @@ var trainingRound = 0,
   QSTATES = Math.pow(2, NRFEATURES), // All combinations if features can be binary classified!
   gamma = 0.8, // TODO: What should this be?
   learningRate = 0.9, // TODO: Start high and then go small!?
-  explorationRate = 0.4, // TODO: change this over time!?
+  explorationRate = 0.6, // TODO: change this over time!?
   actions = [
     new THREE.Vector2(-1, 0), // Left
     new THREE.Vector2(0, 1), // Up
@@ -36,27 +38,44 @@ function createNewAgent() {
   for (var i = 0; i < QSTATES; i++) {
     qTable[i] = new Array(MOVES);
     for (var j = 0; j < MOVES; j++) {
-      // Initialize to a random number, so our current policy is something at least...
+      // Initialize to a random number, so our current policy is something even from beginning.
       qTable[i][j] = Math.floor(Math.random() * MOVES);
     }
   }
   trainingRound = 0;
-  weights = new Array(NRFEATURES).fill(1.0);
+
+  // Add new agent to collection and increase number of agents.
+  agentIndex = allAgents.length;
+  var newAgent = {
+    id: agentIndex,
+    trainingRound: trainingRound,
+    bestScore: bestScore,
+    qTable: qTable
+  };
+  allAgents.push(newAgent);
+  console.log("Created agent: " + agentIndex);
 }
 
-// Read an old agent from file.
+// Fetch an old agent from file.
 function fetchOldAgent(agentToUse) {
-  // Read agents from file, nr 0 should be the best!
-  //qTable = readQFromFile(agentToUse);
-  //trainingRound = readRoundFromFile(agentToUse);
-  //weights = ...
+  jQuery.getJSON('agents/allAgents.json', function(data) {
+    // Store all agents locally.
+    allAgents = data;
+
+    // Get requested agent.
+    agentIndex = allAgents[agentToUse].id;
+    trainingRound = allAgents[agentToUse].trainingRound;
+    bestScore = allAgents[agentToUse].bestScore;
+    qTable = allAgents[agentToUse].qTable;
+  });
+  console.log("Fetched agent: " + agentToUse);
 }
 
 // Initialize the AI agent.
 function initAgent(trainAI, maze, ballInitPos, mazeDimension) {
   // Set parameters for this iteration.
   isTraining = trainAI;
-  goalPos = new THREE.Vector2(mazeDimension-1, mazeDimension - 2);
+  goalPos = new THREE.Vector2(mazeDimension - 1, mazeDimension - 2);
   currentPos.copy(ballInitPos);
   currentMaze = maze.map(arr => {
     return arr.slice();
@@ -79,6 +98,11 @@ function initAgent(trainAI, maze, ballInitPos, mazeDimension) {
 // Return current training round.
 function getTrainingRound() {
   return trainingRound;
+}
+
+// Return number of stores agents.
+function getNumberOfAgents() {
+  return allAgents.length;
 }
 
 // Return the next move, either according to current policy or explore the space with a random move.
@@ -129,18 +153,34 @@ function getNextAIStep() {
 
 // This game ended, use final score to update table
 function roundEnded(energyLeft) {
-  var energyScore = energyLeft; // TODO: Use this?
+  // Update agents best score
+  if (energyLeft > bestScore) {
+    bestScore = energyLeft;
+  }
   trainingRound++;
+
+  // Save latest iteration of the agent.
+  if(trainingRound%10 == 0) {
+    saveAgent();
+  }
 }
 
 // Save current agent to file.
 function saveAgent() {
   if (qTable != undefined) {
-    // TODO: Save Q-table and training round to file
+    // TODO: sort agents based on score!?
+    console.log("Save agent: " + agentIndex);
+    // Update agent and save to file.
+    allAgents[agentIndex].id = agentIndex;
+    allAgents[agentIndex].trainingRound = trainingRound;
+    allAgents[agentIndex].bestScore = bestScore;
+    allAgents[agentIndex].qTable = qTable;
 
-    // Return index where current agent was saved
-    var index = 1;
-    return index;
+    var qTableJSON = JSON.stringify(allAgents);
+    downloadObject(qTableJSON, 'allAgents.json', 'application/json');
+
+    // Return index where current agent was saved (useful only if we sort => update agent'sindex...)
+    return agentIndex;
   } else {
     return -1;
   }
@@ -150,14 +190,12 @@ function saveAgent() {
  * PRIVATE FUNCTIONS
  */
 
-// Calculate the Q-value for this state.
-// TODO: Use!?
-function calcQValue(state, action) {
-  var Q = 0;
-  for (var i = 0; i < NRFEATURES; i++) {
-    Q += weights[i] * features[i];
-  }
-  return Q;
+function downloadObject(text, name, type) {
+  var a = document.createElement('a');
+  var file = new Blob([text], { type: type });
+  a.href = URL.createObjectURL(file);
+  a.download = name;
+  a.click();
 }
 
 // Update the Q-value for this state and move: Q(s,a).
@@ -168,10 +206,10 @@ function updateQTable(state, actionIdx, pos) {
   });
   var maxQ = Math.max(...qValues);
 
-  // Update Q-value for this state & action!
-  qTable[state][actionIdx] =
+  // Update Q-value for this state & action! Round to 3 decimals.
+  qTable[state][actionIdx] = Math.round( 1000 * 
     (1 - learningRate) * qTable[state][actionIdx] +
-    learningRate * (getReward(pos) + gamma * maxQ);
+    learningRate * (getReward(pos) + gamma * maxQ)) / 1000;
 }
 
 // Returns the index of the best move for this set of features (e.g. state).
@@ -192,7 +230,13 @@ function getBestMove(state) {
 
 // Return true if this was a valid move (i.e. didn't bring us into a wall).
 function isValidMove(pos) {
-  if (pos.equals(goalPos) || currentMaze[pos.x][pos.y] != 2) {
+  if (
+    pos.x > 0 &&
+    pos.x < currentMaze.length && // OBS: must be without '-1' so we can reach the goal!
+    pos.y > 0 &&
+    pos.y < currentMaze.length - 1 &&
+    currentMaze[pos.x][pos.y] != 2
+  ) {
     return true;
   } else {
     return false;
@@ -203,7 +247,7 @@ function isValidMove(pos) {
 function getReward(pos) {
   // Check if we've reached the goal.
   if (pos.equals(goalPos)) {
-    // TODO: Use distanceTo istället?
+    console.log('Reached goal!');
     return 100;
   } else if (
     pos.x < 1 ||
@@ -211,7 +255,9 @@ function getReward(pos) {
     pos.y < 1 ||
     pos.y >= currentMaze.length - 1
   ) {
-    return -100;
+    // Still needed because we update the table for these as well.
+    //console.log('Outside: [' + pos.x + ', ' + pos.y + ']');
+    return -50;
   }
 
   // Otherwise check what material we have in new position.
@@ -224,8 +270,9 @@ function getReward(pos) {
       // Bush
       return -5;
     case 2:
+      //console.log('Wall: ' + '[' + pos.x + ', ' + pos.y + ']');
       // Wall
-      return -20;
+      return -50;
   }
 }
 
@@ -247,7 +294,9 @@ function getFreeSquares(direction) {
     return 0;
   }
   newPos.add(direction);
-  while (currentMaze[newPos.x][newPos.y] == 0 && newPos.x < currentMaze.length - 1) {
+  while ( newPos.x < currentMaze.length - 1 &&
+    currentMaze[newPos.x][newPos.y] == 0
+  ) {
     free++;
     newPos.add(direction);
   }
@@ -268,7 +317,10 @@ function getMaterialAtEnd(direction) {
   }
   do {
     newPos.add(direction);
-  } while (currentMaze[newPos.x][newPos.y] == 0 && newPos.x < currentMaze.length - 1);
+  } while (
+    newPos.x < currentMaze.length - 1 &&
+    currentMaze[newPos.x][newPos.y] == 0
+  );
   return currentMaze[newPos.x][newPos.y];
 }
 
