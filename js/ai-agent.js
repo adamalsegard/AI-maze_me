@@ -13,7 +13,7 @@ var trainingRound = 0,
   MOVES = 4,
   NRFEATURES = 13,
   QSTATES = Math.pow(2, NRFEATURES), // All combinations if features can be binary classified!
-  gamma = 0.8, // TODO: What should this be?
+  gamma = 0.8, // Addition of next step to new Q-value
   learningRate = 0.9, // TODO: Start high and then go small!?
   explorationRate = 0.6, // TODO: change this over time!?
   actions = [
@@ -38,8 +38,7 @@ function createNewAgent() {
   for (var i = 0; i < QSTATES; i++) {
     qTable[i] = new Array(MOVES);
     for (var j = 0; j < MOVES; j++) {
-      // Initialize to a random number, so our current policy is something even from beginning.
-      qTable[i][j] = Math.floor(Math.random() * MOVES);
+      qTable[i][j] = 0;
     }
   }
   trainingRound = 0;
@@ -53,22 +52,30 @@ function createNewAgent() {
     qTable: qTable
   };
   allAgents.push(newAgent);
-  console.log("Created agent: " + agentIndex);
+  console.log('Created agent: ' + agentIndex);
 }
 
-// Fetch an old agent from file.
-function fetchOldAgent(agentToUse) {
+// Fetch all old agents from file and return number of agents.
+function fetchOldAgents(callback) {
   jQuery.getJSON('agents/allAgents.json', function(data) {
     // Store all agents locally.
     allAgents = data;
-
-    // Get requested agent.
-    agentIndex = allAgents[agentToUse].id;
-    trainingRound = allAgents[agentToUse].trainingRound;
-    bestScore = allAgents[agentToUse].bestScore;
-    qTable = allAgents[agentToUse].qTable;
+  }).done(() => {
+    console.log('Fetched ' + allAgents.length + ' agents!');
+    callback(allAgents.length);
   });
-  console.log("Fetched agent: " + agentToUse);
+  
+}
+
+// Use one of the stored agents.
+function setOldAgent(agentToUse) {
+  // Get requested agent.
+  agentIndex = allAgents[agentToUse].id;
+  trainingRound = allAgents[agentToUse].trainingRound;
+  bestScore = allAgents[agentToUse].bestScore;
+  qTable = allAgents[agentToUse].qTable;
+
+  console.log('Fetched agent: ' + agentToUse);
 }
 
 // Initialize the AI agent.
@@ -100,17 +107,12 @@ function getTrainingRound() {
   return trainingRound;
 }
 
-// Return number of stores agents.
-function getNumberOfAgents() {
-  return allAgents.length;
-}
-
 // Return the next move, either according to current policy or explore the space with a random move.
 function getNextAIStep() {
   // Q-learning algorithm:
-  // 1 - Pick a state, action (s,a) transition.
+  // 1 - Pick an action from current state => a (s,a) transition.
   // 2 - Make the transition from (s,a) -> s'
-  // 3 - Receive reward r
+  // 3 - Receive reward r(s')
   // 4 - Update Q(s,a) <- (1-alpha) Q(s,a) + alpha*(r + gamma* max Q(s',a'))
 
   // Save current position until we can find a valid move.
@@ -132,11 +134,13 @@ function getNextAIStep() {
         var moveIdx = getBestMove(currentState);
       }
 
-      // Make the move, calculate new features and current state and update the Q-table accordingly.
+      // Update the Q-table according to chosen move.
+      updateQTable(currentState, moveIdx, currentPos);
+
+      // Make the move, calculate new features and new state.
       currentPos.add(actions[moveIdx]);
       calculateFeatures(currentPos);
       currentState = getStateFromFeatures(features);
-      updateQTable(currentState, moveIdx, currentPos);
     } else {
       // Get next move according to current policy.
       var moveIdx = getBestMove(currentState);
@@ -160,7 +164,7 @@ function roundEnded(energyLeft) {
   trainingRound++;
 
   // Save latest iteration of the agent.
-  if(trainingRound%10 == 0) {
+  if (trainingRound % 10 == 0) {
     saveAgent();
   }
 }
@@ -169,7 +173,7 @@ function roundEnded(energyLeft) {
 function saveAgent() {
   if (qTable != undefined) {
     // TODO: sort agents based on score!?
-    console.log("Save agent: " + agentIndex);
+    console.log('Save agent: ' + agentIndex);
     // Update agent and save to file.
     allAgents[agentIndex].id = agentIndex;
     allAgents[agentIndex].trainingRound = trainingRound;
@@ -200,16 +204,23 @@ function downloadObject(text, name, type) {
 
 // Update the Q-value for this state and move: Q(s,a).
 function updateQTable(state, actionIdx, pos) {
+  // Calculate s' (and thus the new position and features from move)
+  var nextPos = new THREE.Vector2();
+  nextPos.copy(pos);
+  nextPos.add(actions[actionIdx]);
+  calculateFeatures(nextPos);
+  var nextState = getStateFromFeatures(features);
+
   // Calculate optimal Q-value for a new move from this state.
   var qValues = actions.map((dir, index) => {
-    return qTable[state][index];
+    return qTable[nextState][index];
   });
   var maxQ = Math.max(...qValues);
 
   // Update Q-value for this state & action! Round to 3 decimals.
-  qTable[state][actionIdx] = Math.round( 1000 * 
-    (1 - learningRate) * qTable[state][actionIdx] +
-    learningRate * (getReward(pos) + gamma * maxQ)) / 1000;
+  var oldValue = (1 - learningRate) * qTable[state][actionIdx];
+  var newValue = learningRate * (getReward(nextPos) + gamma * maxQ);
+  qTable[state][actionIdx] = Math.round(1000 * (oldValue + newValue)) / 1000;
 }
 
 // Returns the index of the best move for this set of features (e.g. state).
@@ -281,9 +292,9 @@ function getReward(pos) {
  */
 
 // Returns the number of free squares in this direction.
-function getFreeSquares(direction) {
+function getFreeSquares(direction, pos) {
   var free = 0;
-  var newPos = new THREE.Vector2(currentPos.x, currentPos.y);
+  var newPos = new THREE.Vector2(pos.x, pos.y);
   // Check if we are at a border
   if (
     newPos.x < 1 ||
@@ -294,7 +305,8 @@ function getFreeSquares(direction) {
     return 0;
   }
   newPos.add(direction);
-  while ( newPos.x < currentMaze.length - 1 &&
+  while (
+    newPos.x < currentMaze.length - 1 &&
     currentMaze[newPos.x][newPos.y] == 0
   ) {
     free++;
@@ -304,8 +316,8 @@ function getFreeSquares(direction) {
 }
 
 // Returns the material when there are no more free squares.
-function getMaterialAtEnd(direction) {
-  var newPos = new THREE.Vector2(currentPos.x, currentPos.y);
+function getMaterialAtEnd(direction, pos) {
+  var newPos = new THREE.Vector2(pos.x, pos.y);
   // Check if we are at a border
   if (
     newPos.x < 1 ||
@@ -325,8 +337,8 @@ function getMaterialAtEnd(direction) {
 }
 
 // Returns true if the closet square in this direction has been visited before.
-function getVisited(direction) {
-  var newPos = new THREE.Vector2(currentPos.x, currentPos.y);
+function getVisited(direction, pos) {
+  var newPos = new THREE.Vector2(pos.x, pos.y);
   // Check if we are at a border
   if (
     newPos.x < 1 ||
@@ -349,9 +361,9 @@ function calcGoalDist(pos) {
 function calculateFeatures(pos) {
   var idx = 0;
   actions.forEach(dir => {
-    features[idx++] = getFreeSquares(dir); // TODO: Combine these two!?
-    features[idx++] = getMaterialAtEnd(dir); // TODO: Combine these two!?
-    features[idx++] = getVisited(dir);
+    features[idx++] = getFreeSquares(dir, pos); // TODO: Combine these two!?
+    features[idx++] = getMaterialAtEnd(dir, pos); // TODO: Combine these two!?
+    features[idx++] = getVisited(dir, pos);
   });
   features[idx] = calcGoalDist(pos);
 }

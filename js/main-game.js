@@ -27,9 +27,10 @@ var camera = undefined,
   gameState = undefined,
   gameMode = undefined,
   agentToUse = 0,
+  numberOfAgents = 0,
   trainAI = false,
   stepsTaken = 0,
-  maxTraining = 200,
+  maxTraining = 1000,
   mouseX = undefined,
   mouseY = undefined,
   maze = undefined,
@@ -420,6 +421,7 @@ function gameLoop() {
         ballBody.updateMassProperties();
         ballBody.velocity.set(0, 0, 0);
         ballBody.angularVelocity.set(0, 0, 0);
+        nextStepAI = new THREE.Vector2(0, 0);
       } else {
         ballBody.mass = 1;
       }
@@ -521,7 +523,7 @@ function gameLoop() {
         // If we're in a training state then just save and restart, else check for victory or loss!
         if (trainAI) {
           // If we've trainged 100 sessions on the same size then maybe it's time to increase!
-          if (getTrainingRound() % 100 == 0) mazeDimension += 2;
+          if (getTrainingRound() % 200 == 0) mazeDimension += 2;
           roundEnded(energy);
           gameState = 'initLevel';
         } else if (win) {
@@ -602,11 +604,13 @@ jQuery.fn.center = function() {
 $('#start-ai').click(() => {
   // Hide pop up on click, save possible
   $('#ai-mode-info').hide();
-  // TODO: Let user decide what agent to use + display possible numbers
-  var numberOfAgents = getNumberOfAgents();
-  agentToUse = numberOfAgents > 0 ? numberOfAgents - 1 : 0;
-  fetchOldAgent(agentToUse);
-  trainAI = true; // Change to false when we have an agent that actually can play!
+
+  // Let user decide what agent to use.
+  if(agentToUse < 0 || agentToUse >= numberOfAgents){
+    agentToUse = numberOfAgents > 0 ? numberOfAgents - 1 : 0;
+  }
+  setOldAgent(agentToUse);
+  trainAI = true; // TODO: Change to false when we have an agent that actually can play!
   gameMode = 'ai';
   gameState = 'initLevel';
 });
@@ -675,6 +679,8 @@ $(document).ready(function() {
     if (gameMode != 'ai') {
       // Show pop up with info and switch to start AI agent loop.
       gameMode = undefined;
+      // Reload agents.
+      numberOfAgents = fetchOldAgents();
       $('#manual-mode-info').hide();
       $('#ai-mode-info').show();
     }
@@ -737,6 +743,11 @@ $(document).ready(function() {
     fixedTimeStep = 1.0 / framesPerStep;
   });
 
+  // Bind number key to set agent.
+  keyboardJS.bind(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], function(e) {
+    agentToUse = parseInt(e.key);
+  });
+
   // Create the WebGL renderer.
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
@@ -761,6 +772,12 @@ $(document).ready(function() {
     false
   );
   $(window).resize(onResize);
+
+  // Fetch old agents from file and add info to AI menu
+  fetchOldAgents((result) => {
+    numberOfAgents = result;
+    $('#agentCount').html('Else chose a number between [0, ' + (numberOfAgents-1) + '] to play another agent.');
+  });
 
   // Init first level.
   gameState = 'initLevel';
