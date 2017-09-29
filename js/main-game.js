@@ -30,7 +30,7 @@ var camera = undefined,
   numberOfAgents = 0,
   trainAI = false,
   stepsTaken = 0,
-  maxTraining = 1000,
+  maxTraining = 500,
   mouseX = undefined,
   mouseY = undefined,
   maze = undefined,
@@ -43,7 +43,7 @@ var camera = undefined,
 
 // Game parameters
 var energy = 0,
-  initEnergy = 100,
+  initEnergy = 1000,
   score = 0,
   completedLevelBonus = 0,
   mazeDimension = 7,
@@ -53,7 +53,7 @@ var energy = 0,
   keyAxis = [0, 0],
   nextStepAI = new THREE.Vector2(0, 0),
   iter = 0,
-  framesPerStep = 10, // TODO: Change back to 60!
+  framesPerStep = 2, // TODO: Change back to 60!
   displayed = false,
   win = false;
 
@@ -478,6 +478,9 @@ function gameLoop() {
       updateMap();
 
       // Update info
+      // TODO: make some animation when energy declines!
+      energy -= energySpent();
+      $('#energy-left').html('Energy left: ' + energy);
       $('#framesPerStep').html('framesPerStep: ' + framesPerStep);
       $('#fixedTimeStep').html(
         'fixedTimeStep: ' + Math.round(1000.0 * fixedTimeStep) / 1000
@@ -485,16 +488,11 @@ function gameLoop() {
 
       // If we are in a training session we want to continue until max iterations, so we can learn even after we reach the goal state.
       if (trainAI) {
-        if (stepsTaken > maxTraining) {
+        if (stepsTaken > maxTraining || energy <= 0) {
           stepsTaken = 0;
           gameState = 'fadeOut';
         }
       } else {
-        // TODO: make some animation when energy declines!
-        // Update energy window.
-        energy -= energySpent();
-        $('#energy-left').html('Energy left: ' + energy);
-
         // Check for loss
         if (energy <= 0) {
           win = false;
@@ -606,7 +604,7 @@ $('#start-ai').click(() => {
   $('#ai-mode-info').hide();
 
   // Let user decide what agent to use.
-  if(agentToUse < 0 || agentToUse >= numberOfAgents){
+  if (agentToUse < 0 || agentToUse >= numberOfAgents) {
     agentToUse = numberOfAgents > 0 ? numberOfAgents - 1 : 0;
   }
   setOldAgent(agentToUse);
@@ -744,7 +742,9 @@ $(document).ready(function() {
   });
 
   // Bind number key to set agent.
-  keyboardJS.bind(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], function(e) {
+  keyboardJS.bind(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], function(
+    e
+  ) {
     agentToUse = parseInt(e.key);
   });
 
@@ -774,9 +774,13 @@ $(document).ready(function() {
   $(window).resize(onResize);
 
   // Fetch old agents from file and add info to AI menu
-  fetchOldAgents((result) => {
+  fetchOldAgents(result => {
     numberOfAgents = result;
-    $('#agentCount').html('Else chose a number between [0, ' + (numberOfAgents-1) + '] to play another agent.');
+    $('#agentCount').html(
+      'Else chose a number between [0, ' +
+        (numberOfAgents - 1) +
+        '] to play another agent.'
+    );
   });
 
   // Init first level.

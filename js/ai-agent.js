@@ -15,7 +15,7 @@ var trainingRound = 0,
   QSTATES = Math.pow(2, NRFEATURES), // All combinations if features can be binary classified!
   gamma = 0.8, // Addition of next step to new Q-value
   learningRate = 0.9, // TODO: Start high and then go small!?
-  explorationRate = 0.6, // TODO: change this over time!?
+  explorationRate = 0.7, // TODO: change this over time!?
   actions = [
     new THREE.Vector2(-1, 0), // Left
     new THREE.Vector2(0, 1), // Up
@@ -62,6 +62,9 @@ function fetchOldAgents(callback) {
     allAgents = data;
   }).done(() => {
     console.log('Fetched ' + allAgents.length + ' agents!');
+    if(allAgents.length < 1) {
+      createNewAgent();
+    }
     callback(allAgents.length);
   });
   
@@ -164,7 +167,7 @@ function roundEnded(energyLeft) {
   trainingRound++;
 
   // Save latest iteration of the agent.
-  if (trainingRound % 10 == 0) {
+  if (trainingRound % 50 == 0) {
     saveAgent();
   }
 }
