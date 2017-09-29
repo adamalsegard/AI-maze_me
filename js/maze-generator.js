@@ -2,11 +2,12 @@
 // Remember to change in mai-game as well!
 var nrOfDifferentMaterials = 2;
 
-// Recursive method to iterate through the maze
+// Recursive method to iterate through the maze.
 function iterate(field, visitedCells, x, y) {
-  // Set this cell as visited
+  // Set this cell as visited.
   visitedCells[x][y] = true;
-  // Beta distribution with left weight
+
+  // Beta distribution with left weight.
   betaDist = Math.pow(Math.sin(Math.random() * Math.PI / 2), 2);
   beta_left = (betaDist < 0.5) ? 2*betaDist : 2*(1-betaDist);
   beta_right = (betaDist > 0.5) ? 2*betaDist-1 : 2*(1-betaDist)-1;
@@ -33,6 +34,7 @@ function iterate(field, visitedCells, x, y) {
       field[field.dimension - 1][field.dimension - 2] = 0;
       return field;
     }
+
     // Take a random (possible) direction and use floor(beta_left) to remove the wall in between.
     dir = directions[Math.floor(Math.random() * directions.length)];
     field[x + dir[0]][y + dir[1]] = Math.floor(beta_left * nrOfDifferentMaterials); 
@@ -40,6 +42,7 @@ function iterate(field, visitedCells, x, y) {
   }
 }   
 
+// Public method to generate a solvable maze.
 function generateSquareMaze(dimension) {
   // Initialize the field.
   var field = new Array(dimension);
@@ -50,12 +53,12 @@ function generateSquareMaze(dimension) {
     visitedCells[i] = new Array(dimension);
     for (var j = 0; j < dimension; j++) {
       if(i == 0 || j == 0 || i == dimension-1 || j == dimension-1){
-        // Initialize outer border as bricks
+        // Initialize outer border as bricks.
         field[i][j] = nrOfDifferentMaterials;
         visitedCells[i][j] = false;
       }
       else {
-        // Use right distribution and ceil for 'wall' segments
+        // Use right distribution and ceil for 'wall' segments.
         betaDist = Math.pow(Math.sin(Math.random() * Math.PI / 2), 2);
         beta_right = (betaDist > 0.5) ? 2*betaDist-1 : 2*(1-betaDist)-1;
         field[i][j] = Math.ceil(beta_right * nrOfDifferentMaterials);

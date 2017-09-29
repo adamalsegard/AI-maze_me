@@ -2,7 +2,7 @@
  * @author Adam Alsegård / http://www.adamalsegard.se
  */
 
-// Check if browser supports WebGL before rendering anything
+// Check if browser supports WebGL before rendering anything.
 if (!Detector.webgl) {
   var warning = Detector.getWebGLErrorMessage();
   document.body.appendChild(warning);
@@ -18,6 +18,7 @@ var textureLoader = new THREE.TextureLoader();
 /**
  * DECLARE VARIABLES
  */
+
 // Render variables
 var camera = undefined,
   scene = undefined,
@@ -26,11 +27,6 @@ var camera = undefined,
   raycaster = undefined,
   gameState = undefined,
   gameMode = undefined,
-  agentToUse = 0,
-  numberOfAgents = 0,
-  trainAI = false,
-  stepsTaken = 0,
-  maxTraining = 500,
   mouseX = undefined,
   mouseY = undefined,
   maze = undefined,
@@ -41,19 +37,28 @@ var camera = undefined,
   intersectedObjectId = -1,
   nrOfDifferentMaterials = 2; // Remember to change in maze-generator as well!
 
+// AI parameters (changable)
+var agentToUse = 0,
+  numberOfAgents = 0,
+  trainAI = false,
+  stepsTaken = 0,
+  maxTraining = 500,
+  increaseMazeSizeAfterXRounds = 200;
+
 // Game parameters
 var energy = 0,
   initEnergy = 1000,
+  mazeDimension = 11,
+  framesPerStep = 10, // TODO: Change back to 60!
+  DEFAULT_AI_FPS = 10,
   score = 0,
   completedLevelBonus = 0,
-  mazeDimension = 7,
   ballRadius = 0.25,
   ballInitPos = new CANNON.Vec3(1, 1, ballRadius),
   lastPos = new CANNON.Vec3(),
   keyAxis = [0, 0],
   nextStepAI = new THREE.Vector2(0, 0),
   iter = 0,
-  framesPerStep = 2, // TODO: Change back to 60!
   displayed = false,
   win = false;
 
@@ -90,13 +95,15 @@ var globalWorld = undefined,
 /**
  * INIT FUNCTIONS
  */
+
+// Init CANNON physics world.
 function createPhysicsWorld() {
   // Create the physics world object.
   globalWorld = new CANNON.World();
   globalWorld.gravity.set(0, 0, -9.82);
   fixedTimeStep = 1.0 / framesPerStep;
 
-  // Create materials
+  // Create materials.
   var ballMaterial = new CANNON.Material({
     friction: 0.4,
     restitution: 0.3 // Studskoefficient
@@ -110,7 +117,7 @@ function createPhysicsWorld() {
     restitution: 0.1
   });
 
-  // Define contact materials
+  // Define contact materials.
   var ballBrickContact = new CANNON.ContactMaterial(
     ballMaterial,
     brickMaterial,
@@ -139,10 +146,10 @@ function createPhysicsWorld() {
   });
   globalWorld.addBody(ballBody);
 
-  // Create the maze
+  // Create the maze.
   for (var i = 0; i < maze.dimension; i++) {
     for (var j = 0; j < maze.dimension; j++) {
-      // Check if we should place a solid body here
+      // Check if we should place a solid body here.
       if (maze[i][j] == nrOfDifferentMaterials) {
         mazeBody = new CANNON.Body({
           mass: 10,
@@ -157,7 +164,7 @@ function createPhysicsWorld() {
     }
   }
 
-  // Create the ground
+  // Create the ground.
   groundBody = new CANNON.Body({
     mass: 0, // Static body
     shape: new CANNON.Plane(),
@@ -166,6 +173,7 @@ function createPhysicsWorld() {
   globalWorld.addBody(groundBody);
 }
 
+// Create the maze mesh and return as a single group mesh.
 function create_maze_mesh(field) {
   var mazeGroup = new THREE.Group();
   intersectMeshes = [];
@@ -173,7 +181,7 @@ function create_maze_mesh(field) {
     for (var j = 0; j < field.dimension; j++) {
       if (field[i][j] > 0) {
         var mazeGeo = new THREE.BoxGeometry(1, 1, 1);
-        // Check if mesh should be solid or not
+        // Check if mesh should be solid or not.
         if (field[i][j] == 1) {
           var mazeMat = new THREE.MeshPhongMaterial({ map: bushLight1Texture });
           var maze_ij = new THREE.Mesh(mazeGeo, mazeMat);
@@ -207,6 +215,7 @@ function create_maze_mesh(field) {
   return mazeGroup;
 }
 
+// Init THREE render world.
 function createRenderWorld() {
   // Create the scene object.
   scene = new THREE.Scene();
@@ -223,7 +232,7 @@ function createRenderWorld() {
   camera.position.set(1, 1, 7);
   scene.add(camera);
 
-  // Create the raycaster
+  // Create the raycaster.
   raycaster = new THREE.Raycaster();
 
   // Create the ball and add to scene.
@@ -269,6 +278,7 @@ function onMoveRight() {
   keyAxis[0] = 1;
 }
 
+// Update function called in render loop that listens for user input.
 function updateCameraPosition() {
   if (Key.isDown(Key.UP)) onMoveUp();
   if (Key.isDown(Key.LEFT)) onMoveLeft();
@@ -276,23 +286,19 @@ function updateCameraPosition() {
   if (Key.isDown(Key.RIGHT)) onMoveRight();
 }
 
+// Define keys to listen for.
 var Key = {
   _pressed: {},
-
   LEFT: 37,
   UP: 38,
   RIGHT: 39,
   DOWN: 40,
-  I: 73,
-
   isDown: function(keyCode) {
     return this._pressed[keyCode];
   },
-
   onKeydown: function(event) {
     this._pressed[event.keyCode] = true;
   },
-
   onKeyup: function(event) {
     delete this._pressed[event.keyCode];
   }
@@ -301,6 +307,8 @@ var Key = {
 /**
  * UPDATE FUNCTIONS
  */
+
+ // Update CANNON physics.
 function updatePhysicsWorld() {
   if (gameMode == 'manual') {
     // Apply user-directed force.
@@ -312,7 +320,7 @@ function updatePhysicsWorld() {
     ballBody.applyImpulse(inputForce, ballBody.position);
     keyAxis = [0, 0];
   } else if (gameMode == 'ai') {
-    // Update ballBody position with fixed step in direction AI agent choose
+    // Update ballBody position with fixed step in direction AI agent choose.
     var addVector = new CANNON.Vec3(
       nextStepAI.x * fixedTimeStep,
       nextStepAI.y * fixedTimeStep,
@@ -325,6 +333,7 @@ function updatePhysicsWorld() {
   globalWorld.step(fixedTimeStep);
 }
 
+// Update THREE render.
 function updateRenderWorld() {
   // Update ball position and rotation.
   ballMesh.position.copy(ballBody.position);
@@ -336,7 +345,7 @@ function updateRenderWorld() {
   light.position.x = camera.position.x;
   light.position.y = camera.position.y;
 
-  // Check for intersection with non-solid materials
+  // Check for intersection with non-solid materials.
   raycaster.far = 0.5;
   raycaster.set(ballMesh.position, new THREE.Vector3(1, 0, 0));
   var intersections = raycaster.intersectObjects(intersectMeshes);
@@ -362,20 +371,21 @@ function updateRenderWorld() {
     intersections[0].distance < ballRadius &&
     intersections[0].object.id != intersectedObjectId
   ) {
+    // Subtract energy for type of entered material. 
+    // This will not subtract if the same object is entered several time *in a row*!
     materialEntered(intersections[0].object.name);
-    intersectedObjectId = intersections[0].object.id; // TODO: Keep track of all visited ids?
-  } else if (intersections.length == 0) {
-    //intersectedObjectId = -1;
-    // TODO: rethink this!
+    intersectedObjectId = intersections[0].object.id;
   }
 }
 
+// Return energy spent if the player (ball) moved move than one square. 
 function energySpent() {
-  // Calculate distance moved since last frame
+  // Calculate distance moved since last subtraction.
   var moved = ballBody.position.vsub(lastPos);
 
   // Only return if moved move than one square!
   if (moved.length() >= 1.0) {
+    // Also update the path in map scene.
     updateLinePath();
     lastPos.copy(ballBody.position);
     return Math.round(moved.length());
@@ -384,6 +394,7 @@ function energySpent() {
   }
 }
 
+// Return sum to subtract when player (ball) entered a non-solid material in the maze.
 function materialEntered(materialType) {
   // TODO: Animate
   switch (materialType) {
@@ -410,11 +421,11 @@ function gameLoop() {
       createPhysicsWorld();
       createRenderWorld();
 
-      // Game parameters
+      // Init game parameters.
       energy = initEnergy + completedLevelBonus;
       lastPos.copy(ballInitPos);
 
-      // Init AI agent
+      // Init AI agent and update player (ball) accordingly.
       if (gameMode == 'ai') {
         initAgent(trainAI, maze, ballInitPos, mazeDimension);
         ballBody.mass = 0;
@@ -426,10 +437,10 @@ function gameLoop() {
         ballBody.mass = 1;
       }
 
-      // Init map over entire maze
+      // Init map over entire maze.
       createMap(maze);
 
-      // Update static display metrics
+      // Update static display metrics.
       light.intensity = 0;
       var level = Math.floor((mazeDimension - 1) / 2 - 4);
       $('#level').html('Level ' + level);
@@ -438,12 +449,12 @@ function gameLoop() {
       $('#energy-left').html('Energy left: ' + energy);
       displayed = false;
 
-      // Switch game state
+      // Switch game state.
       gameState = 'fadeIn';
       break;
 
     case 'fadeIn':
-      // Fade in before play starts
+      // Fade in before play starts.
       light.intensity += 0.1 * (1.0 - light.intensity);
       renderer.render(scene, camera);
       if (Math.abs(light.intensity - 1.0) < 0.05) {
@@ -493,7 +504,7 @@ function gameLoop() {
           gameState = 'fadeOut';
         }
       } else {
-        // Check for loss
+        // Check for loss.
         if (energy <= 0) {
           win = false;
           gameState = 'fadeOut';
@@ -510,6 +521,7 @@ function gameLoop() {
       break;
 
     case 'fadeOut':
+      // TODO: Remove?
       updatePhysicsWorld();
       updateRenderWorld();
       light.intensity += 0.1 * (0.0 - light.intensity);
@@ -520,8 +532,8 @@ function gameLoop() {
 
         // If we're in a training state then just save and restart, else check for victory or loss!
         if (trainAI) {
-          // If we've trainged 100 sessions on the same size then maybe it's time to increase!
-          if (getTrainingRound() % 200 == 0) mazeDimension += 2;
+          // If we've trainged a while on the same size then maybe it's time to increase!
+          if (getTrainingRound() % increaseMazeSizeAfterXRounds == 0) mazeDimension += 2;
           roundEnded(energy);
           gameState = 'initLevel';
         } else if (win) {
@@ -534,7 +546,7 @@ function gameLoop() {
       break;
 
     case 'victory':
-      // Display score and 'Next level' button
+      // Display score and 'Next level' button.
       if (!displayed) {
         completedLevelBonus += 50;
         score += energy;
@@ -547,7 +559,7 @@ function gameLoop() {
       break;
 
     case 'loss':
-      // Display score and 'Restart' button
+      // Display score and 'Restart' button.
       if (!displayed) {
         $('#endTitle').html('You lost!');
         $('#score').html('Total score: ' + score);
@@ -564,11 +576,13 @@ function gameLoop() {
 /**
  * WINDOW FUNCTIONS
  */
+
+// Called automatically every time window gets resized.
 function onResize() {
   renderer.setSize(window.innerWidth, window.innerHeight);
   camera.aspect = window.innerWidth / window.innerHeight;
   camera.updateProjectionMatrix();
-  // Recenter instructions
+  // Re-center centered windows.
   $('#instructions').center();
   $('#help').center();
   $('#game-ended').center();
@@ -598,17 +612,21 @@ jQuery.fn.center = function() {
   return this;
 };
 
-// Bind html button functions.
+/**
+ * BINDING OF HTML BUTTON FUNCTIONS
+ */
 $('#start-ai').click(() => {
-  // Hide pop up on click, save possible
+  // Hide pop up on click.
   $('#ai-mode-info').hide();
 
   // Let user decide what agent to use.
   if (agentToUse < 0 || agentToUse >= numberOfAgents) {
     agentToUse = numberOfAgents > 0 ? numberOfAgents - 1 : 0;
   }
+
+  // Fetch an old agent and start playing. 
   setOldAgent(agentToUse);
-  trainAI = true; // TODO: Change to false when we have an agent that actually can play!
+  trainAI = false;
   gameMode = 'ai';
   gameState = 'initLevel';
 });
@@ -616,12 +634,13 @@ $('#start-ai').click(() => {
 $('#start-manual').click(() => {
   // Hide pop up on click and save any possible AI agents if training was in session!
   $('#manual-mode-info').hide();
-  saveAgent();
+  agentToUse = saveAgent();
   gameMode = 'manual';
   gameState = 'initLevel';
 });
 
 $('#restartBtn').click(() => {
+  // Start next level.
   $('#game-ended').hide();
   gameState = 'initLevel';
 });
@@ -630,7 +649,7 @@ $('#restartBtn').click(() => {
  * MAIN (LOAD) FUNCTION
  */
 $(document).ready(function() {
-  // Prepare the 'Instructions' window. Bind 'I' key to hide/show window.
+  // Prepare the 'Instructions' window. Bind 'I' key to hide/show window with PRESS.
   $('#instructions')
     .center()
     .hide();
@@ -644,7 +663,7 @@ $(document).ready(function() {
     }
   );
 
-  // Prepare the 'Help' window. Bind 'H' key to hide/show window.
+  // Prepare the 'Help' window. Bind 'H' key to hide/show window iwth PRESS.
   $('#help')
     .center()
     .hide();
@@ -661,7 +680,7 @@ $(document).ready(function() {
     .center()
     .hide();
 
-  // Prepare the 'Map' window. Bind 'M' key to hide/show map.
+  // Prepare the 'Map' window. Bind 'M' key to hide/show map with CLICK.
   $('#maze-map').hide();
   keyboardJS.bind('m', function() {
     if ($('#maze-map').is(':visible')) {
@@ -671,7 +690,7 @@ $(document).ready(function() {
     }
   });
 
-  // Bind 'A' key to 'AI Mode'. Start by default.
+  // Bind 'A' key to 'AI Mode'. Start by DEFAULT.
   $('#ai-mode-info').center();
   keyboardJS.bind('a', function() {
     if (gameMode != 'ai') {
@@ -715,6 +734,7 @@ $(document).ready(function() {
     // Continue training session for this AI agent.
     if (gameMode == 'ai') {
       trainAI = true;
+      framesPerStep = DEFAULT_AI_FPS;
       gameState = 'initLevel';
     }
   });
@@ -729,19 +749,17 @@ $(document).ready(function() {
 
   // Bind '+' key to Increase training speed.
   keyboardJS.bind('+', function() {
-    //console.log('+');
-    framesPerStep -= 10;
+    framesPerStep -= 5;
     fixedTimeStep = 1.0 / framesPerStep;
   });
 
   // Bind '-' key to Decrease training speed.
   keyboardJS.bind('-', function() {
-    //console.log('-');
-    framesPerStep += 10;
+    framesPerStep += 5;
     fixedTimeStep = 1.0 / framesPerStep;
   });
 
-  // Bind number key to set agent.
+  // Bind number keys to set which agentToUse.
   keyboardJS.bind(['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'], function(
     e
   ) {
@@ -751,7 +769,7 @@ $(document).ready(function() {
   // Create the WebGL renderer.
   renderer = new THREE.WebGLRenderer({ antialias: true });
   renderer.setSize(window.innerWidth, window.innerHeight);
-  // Enable shadows
+  // Enable shadows.
   renderer.shadowMap.enabled = true;
   renderer.shadowMap.type = THREE.PCFSoftShadowMap;
   document.body.appendChild(renderer.domElement);
@@ -773,7 +791,7 @@ $(document).ready(function() {
   );
   $(window).resize(onResize);
 
-  // Fetch old agents from file and add info to AI menu
+  // Fetch old agents from file and add info to AI menu (done by callback function).
   fetchOldAgents(result => {
     numberOfAgents = result;
     $('#agentCount').html(

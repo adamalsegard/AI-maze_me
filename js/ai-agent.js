@@ -13,7 +13,7 @@ var trainingRound = 0,
   MOVES = 4,
   NRFEATURES = 13,
   QSTATES = Math.pow(2, NRFEATURES), // All combinations if features can be binary classified!
-  gamma = 0.8, // Addition of next step to new Q-value
+  gamma = 0.8, // Addition of next step to new Q-value.
   learningRate = 0.9, // TODO: Start high and then go small!?
   explorationRate = 0.7, // TODO: change this over time!?
   actions = [
@@ -33,7 +33,7 @@ var trainingRound = 0,
 
 // Initialize the Q-table for a new AI Agent.
 function createNewAgent() {
-  // The Q table is a (States X Actions) matrix;
+  // The Q table is a (States X Actions) matrix.
   qTable = new Array(QSTATES);
   for (var i = 0; i < QSTATES; i++) {
     qTable[i] = new Array(MOVES);
@@ -57,17 +57,16 @@ function createNewAgent() {
 
 // Fetch all old agents from file and return number of agents.
 function fetchOldAgents(callback) {
-  jQuery.getJSON('agents/allAgents.json', function(data) {
+  $.getJSON('agents/allAgents.json', function(data) {
     // Store all agents locally.
     allAgents = data;
   }).done(() => {
     console.log('Fetched ' + allAgents.length + ' agents!');
-    if(allAgents.length < 1) {
+    if (allAgents.length < 1) {
       createNewAgent();
     }
     callback(allAgents.length);
   });
-  
 }
 
 // Use one of the stored agents.
@@ -116,7 +115,7 @@ function getNextAIStep() {
   // 1 - Pick an action from current state => a (s,a) transition.
   // 2 - Make the transition from (s,a) -> s'
   // 3 - Receive reward r(s')
-  // 4 - Update Q(s,a) <- (1-alpha) Q(s,a) + alpha*(r + gamma* max Q(s',a'))
+  // 4 - Update Q(s,a) <- (1-learningRate)*Q(s,a) + learningRate*(r(s') + gamma*max::Q(s',a'))
 
   // Save current position until we can find a valid move.
   var tempPos = new THREE.Vector2();
@@ -153,14 +152,14 @@ function getNextAIStep() {
     }
   } while (!isValidMove(currentPos));
 
-  // Update visited matrix
+  // Update visited matrix and return move.
   visitedMaze[currentPos.x][currentPos.y] = true;
   return actions[moveIdx];
 }
 
-// This game ended, use final score to update table
+// This game ended, use final score to update table.
 function roundEnded(energyLeft) {
-  // Update agents best score
+  // Update agents best score.
   if (energyLeft > bestScore) {
     bestScore = energyLeft;
   }
@@ -175,18 +174,24 @@ function roundEnded(energyLeft) {
 // Save current agent to file.
 function saveAgent() {
   if (qTable != undefined) {
-    // TODO: sort agents based on score!?
-    console.log('Save agent: ' + agentIndex);
-    // Update agent and save to file.
+    // Update agent before saving.
     allAgents[agentIndex].id = agentIndex;
     allAgents[agentIndex].trainingRound = trainingRound;
     allAgents[agentIndex].bestScore = bestScore;
     allAgents[agentIndex].qTable = qTable;
 
+    // Sort agents based on score. Best comes first!
+    // TODO: If this is done then we need to update index (of all agents!)
+    /*allAgents.sort((a, b) => {
+      return b.bestScore - a.bestScore;
+    });
+    console.log('Save agent as index: ' + agentIndex); */
+
+    // Send all agents as a JSON and download file as <a>.
     var qTableJSON = JSON.stringify(allAgents);
     downloadObject(qTableJSON, 'allAgents.json', 'application/json');
 
-    // Return index where current agent was saved (useful only if we sort => update agent'sindex...)
+    // Return index where current agent was saved (useful only if we sort => update agents' index...)
     return agentIndex;
   } else {
     return -1;
@@ -197,6 +202,7 @@ function saveAgent() {
  * PRIVATE FUNCTIONS
  */
 
+// Download JSON object as an <a> tag.
 function downloadObject(text, name, type) {
   var a = document.createElement('a');
   var file = new Blob([text], { type: type });
@@ -207,20 +213,20 @@ function downloadObject(text, name, type) {
 
 // Update the Q-value for this state and move: Q(s,a).
 function updateQTable(state, actionIdx, pos) {
-  // Calculate s' (and thus the new position and features from move)
+  // Calculate s' (and thus the new position and features from this move).
   var nextPos = new THREE.Vector2();
   nextPos.copy(pos);
   nextPos.add(actions[actionIdx]);
   calculateFeatures(nextPos);
   var nextState = getStateFromFeatures(features);
 
-  // Calculate optimal Q-value for a new move from this state.
+  // Calculate optimal Q-value for a new move from this s' state.
   var qValues = actions.map((dir, index) => {
     return qTable[nextState][index];
   });
   var maxQ = Math.max(...qValues);
 
-  // Update Q-value for this state & action! Round to 3 decimals.
+  // Update Q-value for this state & action, Q(s,a)! Round to 3 decimals.
   var oldValue = (1 - learningRate) * qTable[state][actionIdx];
   var newValue = learningRate * (getReward(nextPos) + gamma * maxQ);
   qTable[state][actionIdx] = Math.round(1000 * (oldValue + newValue)) / 1000;
@@ -269,8 +275,7 @@ function getReward(pos) {
     pos.y < 1 ||
     pos.y >= currentMaze.length - 1
   ) {
-    // Still needed because we update the table for these as well.
-    //console.log('Outside: [' + pos.x + ', ' + pos.y + ']');
+    // Still needed because we update the table for invalid moves as well.
     return -50;
   }
 
@@ -284,7 +289,6 @@ function getReward(pos) {
       // Bush
       return -5;
     case 2:
-      //console.log('Wall: ' + '[' + pos.x + ', ' + pos.y + ']');
       // Wall
       return -50;
   }
@@ -355,7 +359,7 @@ function getVisited(direction, pos) {
   return visitedMaze[newPos.x][newPos.y];
 }
 
-// Calculate euclidean distance to goal state.
+// Return the euclidean distance to goal state.
 function calcGoalDist(pos) {
   return pos.distanceToManhattan(goalPos);
 }
@@ -364,8 +368,8 @@ function calcGoalDist(pos) {
 function calculateFeatures(pos) {
   var idx = 0;
   actions.forEach(dir => {
-    features[idx++] = getFreeSquares(dir, pos); // TODO: Combine these two!?
-    features[idx++] = getMaterialAtEnd(dir, pos); // TODO: Combine these two!?
+    features[idx++] = getFreeSquares(dir, pos);
+    features[idx++] = getMaterialAtEnd(dir, pos);
     features[idx++] = getVisited(dir, pos);
   });
   features[idx] = calcGoalDist(pos);
