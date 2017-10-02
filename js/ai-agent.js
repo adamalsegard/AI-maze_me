@@ -25,6 +25,7 @@ var trainingRound = 0,
   ],
   goalPos = new THREE.Vector2(0, 0),
   currentPos = new THREE.Vector2(0, 0),
+  lastPos = new THREE.Vector2(0, 0),
   currentState = 0,
   earlierDistance = 0;
 
@@ -39,7 +40,8 @@ function createNewAgent() {
   for (var i = 0; i < QSTATES; i++) {
     qTable[i] = new Array(MOVES);
     for (var j = 0; j < MOVES; j++) {
-      qTable[i][j] = 0;
+      // Init to a low value so agent don't prefer to go into walls all the time.
+      qTable[i][j] = -10;
     }
   }
   trainingRound = 0;
@@ -122,8 +124,42 @@ function getNextAIStep() {
   var tempPos = new THREE.Vector2();
   tempPos.copy(currentPos);
 
-  // Return position only if move didn't bring us into a wall. But update Q-table for the other scenarios as well.
+  // Return position only if move didn't bring us into a wall.
+  // Train without agent being able to go into walls at att -> don't update table unless it is a valid move.
   do {
+    // Reset position.
+    tempPos.copy(currentPos);
+
+    // If we are training then use the exploration/exploitation rule. Else always move according to policy.
+    if (trainAI) {
+      if (Math.random() < explorationRate) {
+        // Take a random move.
+        var moveIdx = Math.floor(Math.random() * MOVES);
+      } else {
+        // Move according to current policy.
+        var moveIdx = getBestMove(currentState);
+      }
+      tempPos.add(actions[moveIdx]);
+    } else {
+      if (Math.random() < explorationRatePlay) {
+        // Take a random move.
+        var moveIdx = Math.floor(Math.random() * MOVES);
+      } else {
+        // Move according to current policy.
+        var moveIdx = getBestMove(currentState);
+      }
+      tempPos.add(actions[moveIdx]);
+    }
+  } while (!isValidMove(tempPos));
+
+  updateQTable(currentState, moveIdx, currentPos);
+  lastPos.copy(currentPos);
+  currentPos.add(actions[moveIdx]);
+  calculateFeatures(currentPos);
+  currentState = getStateFromFeatures(features);
+
+  // Return position only if move didn't bring us into a wall. But update Q-table for the other scenarios as well.
+  /*do {
     // Reset position.
     currentPos.copy(tempPos);
 
@@ -153,11 +189,12 @@ function getNextAIStep() {
         // Get next move according to current policy.
         var moveIdx = getBestMove(currentState);
       }
+      updateQTable(currentState, moveIdx, currentPos);
       currentPos.add(actions[moveIdx]);
       calculateFeatures(currentPos);
       currentState = getStateFromFeatures(features);
     }
-  } while (!isValidMove(currentPos));
+  } while (!isValidMove(currentPos));*/
 
   // Update visited matrix and return move.
   visitedMaze[currentPos.x][currentPos.y] = true;
@@ -280,11 +317,7 @@ function isValidMove(pos) {
 // Returns the reward for this transition.
 function getTransitionReward(pos) {
   var reward = 0;
-  // Incooperate the difference to goal as reward.
-  var dist = calcGoalDist(pos);
-  var diff = earlierDistance - dist;
-  reward += diff;
-
+  // Sanity check that we're still inside the maze
   if (
     pos.x < 1 ||
     pos.x >= currentMaze.length - 1 ||
@@ -292,6 +325,16 @@ function getTransitionReward(pos) {
     pos.y >= currentMaze.length - 1
   ) {
     return reward;
+  }
+
+  // Incooperate the difference to goal as reward.
+  var dist = calcGoalDist(pos);
+  var diff = earlierDistance - dist;
+  reward += diff*3;
+
+  // Double the negative reward if we revisit the same state we just came from. 
+  if(pos.equals(lastPos)) {
+    reward -= 1;
   }
 
   // Get bonus if we explore an unvisited state.
@@ -307,7 +350,7 @@ function getReward(pos) {
   // Check if we've reached the goal.
   if (pos.equals(goalPos)) {
     console.log('Reached goal!');
-    return 100;
+    return 30;
   } else if (
     pos.x < 1 ||
     pos.x >= currentMaze.length - 1 ||
@@ -315,7 +358,7 @@ function getReward(pos) {
     pos.y >= currentMaze.length - 1
   ) {
     // Still needed because we update the table for invalid moves as well.
-    return -50;
+    return -20;
   }
 
   // Otherwise check what material we have in new position.
@@ -329,7 +372,7 @@ function getReward(pos) {
       return -5;
     case 2:
       // Wall
-      return -50;
+      return -30;
   }
 }
 
