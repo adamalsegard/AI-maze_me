@@ -48,8 +48,8 @@ var agentToUse = 0,
 // Game parameters
 var energy = 0,
   initEnergy = 1000,
-  mazeDimension = 11,
-  framesPerStep = 10, // TODO: Change back to 60!
+  mazeDimension = 9,
+  framesPerStep = 5, // TODO: Change back to 60!
   DEFAULT_AI_FPS = 10,
   score = 0,
   completedLevelBonus = 0,
@@ -308,7 +308,7 @@ var Key = {
  * UPDATE FUNCTIONS
  */
 
- // Update CANNON physics.
+// Update CANNON physics.
 function updatePhysicsWorld() {
   if (gameMode == 'manual') {
     // Apply user-directed force.
@@ -371,20 +371,20 @@ function updateRenderWorld() {
     intersections[0].distance < ballRadius &&
     intersections[0].object.id != intersectedObjectId
   ) {
-    // Subtract energy for type of entered material. 
+    // Subtract energy for type of entered material.
     // This will not subtract if the same object is entered several time *in a row*!
     materialEntered(intersections[0].object.name);
     intersectedObjectId = intersections[0].object.id;
   }
 }
 
-// Return energy spent if the player (ball) moved move than one square. 
+// Return energy spent if the player (ball) moved move than one square.
 function energySpent() {
   // Calculate distance moved since last subtraction.
   var moved = ballBody.position.vsub(lastPos);
 
   // Only return if moved move than one square!
-  if (moved.length() >= 1.0) {
+  if (moved.length() >= 0.95) {
     // Also update the path in map scene.
     updateLinePath();
     lastPos.copy(ballBody.position);
@@ -396,18 +396,41 @@ function energySpent() {
 
 // Return sum to subtract when player (ball) entered a non-solid material in the maze.
 function materialEntered(materialType) {
-  // TODO: Animate
   switch (materialType) {
     case 'bushLight':
+      animateEnergySubtraction(bushLightSub);
       energy -= bushLightSub;
       break;
     case 'bushMed':
+      animateEnergySubtraction(bushMedSub);
       energy -= bushMedSub;
       break;
     case 'bushDark':
+      animateEnergySubtraction(bushDarkSub);
       energy -= bushDarkSub;
       break;
   }
+}
+
+// Animate energy subtraction when a material was entered.
+function animateEnergySubtraction(subtractedSum) {
+  console.log("Animate: -" + subtractedSum);
+  $('#energy-decrease').html('-' + subtractedSum);
+  /*var $element = $('#energy-decrease').bind('webkitAnimationEnd', function(){
+    this.style.webkitAnimationName = '';
+});
+var $element = $('#energy-decrease').bind('animationEnd', function(){
+  this.style.webkitAnimationName = '';
+});*/
+  $('#energy-decrease').removeClass('run-animation');
+  /*css({
+    '-webkit-animation': 'energySub 1s ease-out',
+    '-webkit-animation-iteration-count': '1',
+    'animation': 'energySub 1s ease-out',
+    'animation-iteration-count': '1'
+  });*/
+  void $('#energy-decrease').width();
+  $('#energy-decrease').addClass('run-animation');
 }
 
 /**
@@ -485,11 +508,10 @@ function gameLoop() {
       updateRenderWorld();
       renderer.render(scene, camera);
 
-      // Update Map view
+      // Update Map view.
       updateMap();
 
-      // Update info
-      // TODO: make some animation when energy declines!
+      // Update info.
       energy -= energySpent();
       $('#energy-left').html('Energy left: ' + energy);
       $('#framesPerStep').html('framesPerStep: ' + framesPerStep);
@@ -499,7 +521,7 @@ function gameLoop() {
 
       // If we are in a training session we want to continue until max iterations, so we can learn even after we reach the goal state.
       if (trainAI) {
-        if (stepsTaken > maxTraining || energy <= 0) {
+        if (stepsTaken > maxTraining || energy <= 0 || (Math.floor(ballMesh.position.x + 0.5) == mazeDimension-1 && Math.floor(ballMesh.position.y + 0.5) == mazeDimension - 2)) {
           stepsTaken = 0;
           gameState = 'fadeOut';
         }
@@ -533,7 +555,9 @@ function gameLoop() {
         // If we're in a training state then just save and restart, else check for victory or loss!
         if (trainAI) {
           // If we've trainged a while on the same size then maybe it's time to increase!
-          if (getTrainingRound() % increaseMazeSizeAfterXRounds == 0) mazeDimension += 2;
+          if (getTrainingRound() % increaseMazeSizeAfterXRounds == 0) {
+            mazeDimension += 2;
+          }
           roundEnded(energy);
           gameState = 'initLevel';
         } else if (win) {
@@ -624,7 +648,7 @@ $('#start-ai').click(() => {
     agentToUse = numberOfAgents > 0 ? numberOfAgents - 1 : 0;
   }
 
-  // Fetch an old agent and start playing. 
+  // Fetch an old agent and start playing.
   setOldAgent(agentToUse);
   trainAI = false;
   gameMode = 'ai';
@@ -697,7 +721,14 @@ $(document).ready(function() {
       // Show pop up with info and switch to start AI agent loop.
       gameMode = undefined;
       // Reload agents.
-      numberOfAgents = fetchOldAgents();
+      fetchOldAgents(result => {
+        numberOfAgents = result;
+        $('#agentCount').html(
+          'Else chose a number between [0, ' +
+            (numberOfAgents - 1) +
+            '] to play another agent.'
+        );
+      });
       $('#manual-mode-info').hide();
       $('#ai-mode-info').show();
     }
@@ -749,7 +780,7 @@ $(document).ready(function() {
 
   // Bind '+' key to Increase training speed.
   keyboardJS.bind('+', function() {
-    framesPerStep -= 5;
+    framesPerStep = (framesPerStep > 5) ? framesPerStep - 5 : framesPerStep;
     fixedTimeStep = 1.0 / framesPerStep;
   });
 
@@ -764,6 +795,7 @@ $(document).ready(function() {
     e
   ) {
     agentToUse = parseInt(e.key);
+    console.log('Chosen agent: ' + agentToUse);
   });
 
   // Create the WebGL renderer.
