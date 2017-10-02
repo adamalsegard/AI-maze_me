@@ -48,7 +48,7 @@ var agentToUse = 0,
 // Game parameters
 var energy = 0,
   initEnergy = 1000,
-  mazeDimension = 9,
+  mazeDimension = 7,
   framesPerStep = 5, // TODO: Change back to 60!
   DEFAULT_AI_FPS = 10,
   score = 0,
@@ -414,21 +414,8 @@ function materialEntered(materialType) {
 
 // Animate energy subtraction when a material was entered.
 function animateEnergySubtraction(subtractedSum) {
-  console.log("Animate: -" + subtractedSum);
   $('#energy-decrease').html('-' + subtractedSum);
-  /*var $element = $('#energy-decrease').bind('webkitAnimationEnd', function(){
-    this.style.webkitAnimationName = '';
-});
-var $element = $('#energy-decrease').bind('animationEnd', function(){
-  this.style.webkitAnimationName = '';
-});*/
   $('#energy-decrease').removeClass('run-animation');
-  /*css({
-    '-webkit-animation': 'energySub 1s ease-out',
-    '-webkit-animation-iteration-count': '1',
-    'animation': 'energySub 1s ease-out',
-    'animation-iteration-count': '1'
-  });*/
   void $('#energy-decrease').width();
   $('#energy-decrease').addClass('run-animation');
 }
@@ -521,7 +508,8 @@ function gameLoop() {
 
       // If we are in a training session we want to continue until max iterations, so we can learn even after we reach the goal state.
       if (trainAI) {
-        if (stepsTaken > maxTraining || energy <= 0 || (Math.floor(ballMesh.position.x + 0.5) == mazeDimension-1 && Math.floor(ballMesh.position.y + 0.5) == mazeDimension - 2)) {
+        if (stepsTaken > maxTraining || energy <= 0) {
+        //if (stepsTaken > maxTraining || energy <= 0 || (Math.floor(ballMesh.position.x + 0.5) == mazeDimension-1 && Math.floor(ballMesh.position.y + 0.5) == mazeDimension - 2)) {
           stepsTaken = 0;
           gameState = 'fadeOut';
         }
@@ -535,7 +523,7 @@ function gameLoop() {
         // Check for victory.
         var mazeX = Math.floor(ballMesh.position.x + 0.5);
         var mazeY = Math.floor(ballMesh.position.y + 0.5);
-        if (mazeX == mazeDimension && mazeY == mazeDimension - 2) {
+        if (mazeX == mazeDimension-1 && mazeY == mazeDimension - 2) {
           win = true;
           gameState = 'fadeOut';
         }

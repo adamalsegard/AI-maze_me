@@ -14,8 +14,9 @@ var trainingRound = 0,
   NRFEATURES = 13,
   QSTATES = Math.pow(2, NRFEATURES), // All combinations if features can be binary classified!
   gamma = 0.8, // Addition of next step to new Q-value.
-  learningRate = 0.9, // TODO: Start high and then go small!?
-  explorationRate = 0.7, // TODO: change this over time!?
+  learningRate = 0.8, // This value will start high and then go small.
+  explorationRate = 0.5, // This value will decrease over time.
+  explorationRatePlay = 0.1,
   actions = [
     new THREE.Vector2(-1, 0), // Left
     new THREE.Vector2(0, 1), // Up
@@ -99,8 +100,8 @@ function initAgent(trainAI, maze, ballInitPos, mazeDimension) {
 
   // Calculate new features and set starting state.
   features = new Array(NRFEATURES).fill(1.0);
-  calculateFeatures(currentPos);
   earlierDistance = currentPos.distanceToManhattan(goalPos);
+  calculateFeatures(currentPos);
   currentState = getStateFromFeatures(features);
 }
 
@@ -144,8 +145,14 @@ function getNextAIStep() {
       calculateFeatures(currentPos);
       currentState = getStateFromFeatures(features);
     } else {
-      // Get next move according to current policy.
-      var moveIdx = getBestMove(currentState);
+      // Use a random move from time to time so we don't find ourselves in an infinite loop.
+      if (Math.random() < explorationRatePlay) {
+        // Take a random move.
+        var moveIdx = Math.floor(Math.random() * MOVES);
+      } else {
+        // Get next move according to current policy.
+        var moveIdx = getBestMove(currentState);
+      }
       currentPos.add(actions[moveIdx]);
       calculateFeatures(currentPos);
       currentState = getStateFromFeatures(features);
@@ -154,6 +161,7 @@ function getNextAIStep() {
 
   // Update visited matrix and return move.
   visitedMaze[currentPos.x][currentPos.y] = true;
+  earlierDistance = currentPos.distanceToManhattan(goalPos);
   return actions[moveIdx];
 }
 
@@ -166,7 +174,11 @@ function roundEnded(energyLeft) {
   trainingRound++;
 
   // Save latest iteration of the agent.
-  if (trainingRound % 50 == 0) {
+  if (trainingRound % 100 == 0) {
+    // Update learning and exploration rates
+    learningRate = learningRate > 0.2 ? learningRate - 0.05 : learningRate;
+    explorationRate =
+      explorationRate > 0.1 ? explorationRate - 0.02 : explorationRate;
     saveAgent();
   }
 }
@@ -228,7 +240,9 @@ function updateQTable(state, actionIdx, pos) {
 
   // Update Q-value for this state & action, Q(s,a)! Round to 3 decimals.
   var oldValue = (1 - learningRate) * qTable[state][actionIdx];
-  var newValue = learningRate * (getReward(nextPos) + gamma * maxQ);
+  var newValue =
+    learningRate *
+    (getReward(nextPos) + getTransitionReward(nextPos) + gamma * maxQ);
   qTable[state][actionIdx] = Math.round(1000 * (oldValue + newValue)) / 1000;
 }
 
@@ -261,6 +275,31 @@ function isValidMove(pos) {
   } else {
     return false;
   }
+}
+
+// Returns the reward for this transition.
+function getTransitionReward(pos) {
+  var reward = 0;
+  // Incooperate the difference to goal as reward.
+  var dist = calcGoalDist(pos);
+  var diff = earlierDistance - dist;
+  reward += diff;
+
+  if (
+    pos.x < 1 ||
+    pos.x >= currentMaze.length - 1 ||
+    pos.y < 1 ||
+    pos.y >= currentMaze.length - 1
+  ) {
+    return reward;
+  }
+
+  // Get bonus if we explore an unvisited state.
+  if (!visitedMaze[pos.x][pos.y]) {
+    reward += 5;
+  }
+
+  return reward;
 }
 
 // Returns the reward of this position.
@@ -393,6 +432,5 @@ function getStateFromFeatures(currentFeatures) {
   if (currentFeatures[11]) stateIndex += 2048; // Direction visited
   if (currentFeatures[12] < earlierDistance) stateIndex += 4096; // Do we increase or decrease the distance to goal?
 
-  earlierDistance = currentFeatures[12];
   return stateIndex;
 }
