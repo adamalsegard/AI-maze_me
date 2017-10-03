@@ -84,10 +84,10 @@ function setOldAgent(agentToUse) {
 }
 
 // Initialize the AI agent.
-function initAgent(trainAI, maze, ballInitPos, mazeDimension) {
+function initAgent(trainAI, maze, ballInitPos, mazeDimension, initGoalPos) {
   // Set parameters for this iteration.
   isTraining = trainAI;
-  goalPos = new THREE.Vector2(mazeDimension - 1, mazeDimension - 2);
+  goalPos.copy(initGoalPos);
   currentPos.copy(ballInitPos);
   currentMaze = maze.map(arr => {
     return arr.slice();
@@ -157,44 +157,6 @@ function getNextAIStep() {
   currentPos.add(actions[moveIdx]);
   calculateFeatures(currentPos);
   currentState = getStateFromFeatures(features);
-
-  // Return position only if move didn't bring us into a wall. But update Q-table for the other scenarios as well.
-  /*do {
-    // Reset position.
-    currentPos.copy(tempPos);
-
-    // If we are training then use the exploration/exploitation rule. Else always move according to policy.
-    if (isTraining) {
-      if (Math.random() < explorationRate) {
-        // Take a random move.
-        var moveIdx = Math.floor(Math.random() * MOVES);
-      } else {
-        // Move according to current policy.
-        var moveIdx = getBestMove(currentState);
-      }
-
-      // Update the Q-table according to chosen move.
-      updateQTable(currentState, moveIdx, currentPos);
-
-      // Make the move, calculate new features and new state.
-      currentPos.add(actions[moveIdx]);
-      calculateFeatures(currentPos);
-      currentState = getStateFromFeatures(features);
-    } else {
-      // Use a random move from time to time so we don't find ourselves in an infinite loop.
-      if (Math.random() < explorationRatePlay) {
-        // Take a random move.
-        var moveIdx = Math.floor(Math.random() * MOVES);
-      } else {
-        // Get next move according to current policy.
-        var moveIdx = getBestMove(currentState);
-      }
-      updateQTable(currentState, moveIdx, currentPos);
-      currentPos.add(actions[moveIdx]);
-      calculateFeatures(currentPos);
-      currentState = getStateFromFeatures(features);
-    }
-  } while (!isValidMove(currentPos));*/
 
   // Update visited matrix and return move.
   visitedMaze[currentPos.x][currentPos.y] = true;
@@ -301,11 +263,12 @@ function getBestMove(state) {
 
 // Return true if this was a valid move (i.e. didn't bring us into a wall).
 function isValidMove(pos) {
+  // OBS: All checks must be with '=' so we can reach the goal, whereever it is!
   if (
-    pos.x > 0 &&
-    pos.x < currentMaze.length && // OBS: must be without '-1' so we can reach the goal!
-    pos.y > 0 &&
-    pos.y < currentMaze.length - 1 &&
+    pos.x >= 0 &&
+    pos.x <= currentMaze.length - 1 &&
+    pos.y >= 0 &&
+    pos.y <= currentMaze.length - 1 &&
     currentMaze[pos.x][pos.y] != 2
   ) {
     return true;
@@ -358,6 +321,7 @@ function getReward(pos) {
     pos.y >= currentMaze.length - 1
   ) {
     // Still needed because we update the table for invalid moves as well.
+    // NOT ANYMORE: Remove?
     return -20;
   }
 
@@ -372,7 +336,7 @@ function getReward(pos) {
       return -5;
     case 2:
       // Wall
-      return -30;
+      return -20;
   }
 }
 
@@ -395,7 +359,10 @@ function getFreeSquares(direction, pos) {
   }
   newPos.add(direction);
   while (
+    newPos.x >= 1 &&
     newPos.x < currentMaze.length - 1 &&
+    newPos.y >= 1 &&
+    newPos.y < currentMaze.length - 1 &&
     currentMaze[newPos.x][newPos.y] == 0
   ) {
     free++;
@@ -419,7 +386,10 @@ function getMaterialAtEnd(direction, pos) {
   do {
     newPos.add(direction);
   } while (
+    newPos.x >= 1 &&
     newPos.x < currentMaze.length - 1 &&
+    newPos.y >= 1 &&
+    newPos.y < currentMaze.length - 1 &&
     currentMaze[newPos.x][newPos.y] == 0
   );
   return currentMaze[newPos.x][newPos.y];

@@ -3,7 +3,7 @@
 var nrOfDifferentMaterials = 2;
 
 // Recursive method to iterate through the maze.
-function iterate(field, visitedCells, x, y) {
+function iterate(field, visitedCells, x, y, startPos, goalPos) {
   // Set this cell as visited.
   visitedCells[x][y] = true;
 
@@ -29,21 +29,21 @@ function iterate(field, visitedCells, x, y) {
       directions.push([0, 1]);
     }
     if (directions.length == 0) {
-      // TODO: Randomize starting and exit points! 
-      field[1][1] = 0;
-      field[field.dimension - 1][field.dimension - 2] = 0;
+      // Randomized start and exit points. 
+      field[startPos.x][startPos.y] = 0;
+      field[goalPos.x][goalPos.y] = 0;
       return field;
     }
 
     // Take a random (possible) direction and use floor(beta_left) to remove the wall in between.
     dir = directions[Math.floor(Math.random() * directions.length)];
     field[x + dir[0]][y + dir[1]] = Math.floor(beta_left * nrOfDifferentMaterials); 
-    field = iterate(field, visitedCells, x + dir[0]*2, y + dir[1]*2);
+    field = iterate(field, visitedCells, x + dir[0]*2, y + dir[1]*2, startPos, goalPos);
   }
 }   
 
 // Public method to generate a solvable maze.
-function generateSquareMaze(dimension) {
+function generateSquareMaze(dimension, startPos, goalPos) {
   // Initialize the field.
   var field = new Array(dimension);
   var visitedCells = new Array(dimension);
@@ -69,7 +69,7 @@ function generateSquareMaze(dimension) {
   }
 
   // Gnerate the maze recursively.
-  field = iterate(field, visitedCells, 1, 1);
+  field = iterate(field, visitedCells, 1, 1, startPos, goalPos);
 
   return field;
 }

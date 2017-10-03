@@ -42,19 +42,20 @@ var agentToUse = 0,
   numberOfAgents = 0,
   trainAI = false,
   stepsTaken = 0,
-  maxTraining = 500,
+  maxTraining = 300,
   increaseMazeSizeAfterXRounds = 200;
 
 // Game parameters
 var energy = 0,
   initEnergy = 1000,
-  mazeDimension = 7,
+  mazeDimension = 11, // TODO: Change back to 11!
   framesPerStep = 5, // TODO: Change back to 60!
   DEFAULT_AI_FPS = 10,
   score = 0,
   completedLevelBonus = 0,
   ballRadius = 0.25,
   ballInitPos = new CANNON.Vec3(1, 1, ballRadius),
+  goalPos = new CANNON.Vec3(0, 0, ballRadius),
   lastPos = new CANNON.Vec3(),
   keyAxis = [0, 0],
   nextStepAI = new THREE.Vector2(0, 0),
@@ -222,14 +223,14 @@ function createRenderWorld() {
 
   // Create the light.
   light = new THREE.PointLight(0xffffff, 1, 15, 2);
-  light.position.set(1, 1, 1.5); // FOR SHADOWS: Change to 1.1
+  light.position.set(ballBody.position.x, ballBody.position.y, 1.5); // FOR SHADOWS: Change to 1.1
   light.castShadow = false; // FOR SHADOWS: Change to true
   scene.add(light);
 
   // Create the camera.
   var aspect = window.innerWidth / window.innerHeight;
   camera = new THREE.PerspectiveCamera(50, aspect, 1, 1000);
-  camera.position.set(1, 1, 7);
+  camera.position.set(ballBody.position.x, ballBody.position.y, 7);
   scene.add(camera);
 
   // Create the raycaster.
@@ -426,8 +427,21 @@ function animateEnergySubtraction(subtractedSum) {
 function gameLoop() {
   switch (gameState) {
     case 'initLevel':
+      // Randomize start and exit posistions.
+      ballInitPos.x = Math.floor(Math.random() * (mazeDimension - 3)) + 1;
+      ballInitPos.y = Math.floor(Math.random() * (mazeDimension - 3)) + 1;
+      // Place goal at further end from player.
+      // Ensure that goal is at an odd number in range [1, mazeDim-2]
+      if (Math.random() < 0.5) {
+        goalPos.x = (ballInitPos.x < mazeDimension / 2) ? mazeDimension - 1 : 0;
+        goalPos.y = (Math.floor(Math.random() * ((mazeDimension - 3) / 2)) * 2) + 1;
+      } else {
+        goalPos.x = (Math.floor(Math.random() * ((mazeDimension - 3) / 2)) * 2) + 1;
+        goalPos.y = (ballInitPos.y < mazeDimension / 2) ? mazeDimension - 1 : 0;
+      }
+
       // Init maze field and use it for physics and rendering.
-      maze = generateSquareMaze(mazeDimension);
+      maze = generateSquareMaze(mazeDimension, ballInitPos, goalPos);
       createPhysicsWorld();
       createRenderWorld();
 
@@ -437,7 +451,7 @@ function gameLoop() {
 
       // Init AI agent and update player (ball) accordingly.
       if (gameMode == 'ai') {
-        initAgent(trainAI, maze, ballInitPos, mazeDimension);
+        initAgent(trainAI, maze, ballInitPos, mazeDimension, goalPos);
         ballBody.mass = 0;
         ballBody.updateMassProperties();
         ballBody.velocity.set(0, 0, 0);
@@ -509,7 +523,7 @@ function gameLoop() {
       // If we are in a training session we want to continue until max iterations, so we can learn even after we reach the goal state.
       if (trainAI) {
         if (stepsTaken > maxTraining || energy <= 0) {
-        //if (stepsTaken > maxTraining || energy <= 0 || (Math.floor(ballMesh.position.x + 0.5) == mazeDimension-1 && Math.floor(ballMesh.position.y + 0.5) == mazeDimension - 2)) {
+          //if (stepsTaken > maxTraining || energy <= 0 || (Math.floor(ballMesh.position.x + 0.5) == mazeDimension-1 && Math.floor(ballMesh.position.y + 0.5) == mazeDimension - 2)) {
           stepsTaken = 0;
           gameState = 'fadeOut';
         }
@@ -521,9 +535,10 @@ function gameLoop() {
         }
 
         // Check for victory.
-        var mazeX = Math.floor(ballMesh.position.x + 0.5);
-        var mazeY = Math.floor(ballMesh.position.y + 0.5);
-        if (mazeX == mazeDimension-1 && mazeY == mazeDimension - 2) {
+        if (ballBody.position.almostEquals(goalPos, 0.3)) {
+          //var mazeX = Math.floor(ballMesh.position.x + 0.5);
+          //var mazeY = Math.floor(ballMesh.position.y + 0.5);
+          //if (mazeX == mazeDimension-1 && mazeY == mazeDimension - 2) {
           win = true;
           gameState = 'fadeOut';
         }
@@ -531,9 +546,6 @@ function gameLoop() {
       break;
 
     case 'fadeOut':
-      // TODO: Remove?
-      updatePhysicsWorld();
-      updateRenderWorld();
       light.intensity += 0.1 * (0.0 - light.intensity);
       renderer.render(scene, camera);
       if (Math.abs(light.intensity - 0.0) < 0.1) {
@@ -768,7 +780,7 @@ $(document).ready(function() {
 
   // Bind '+' key to Increase training speed.
   keyboardJS.bind('+', function() {
-    framesPerStep = (framesPerStep > 5) ? framesPerStep - 5 : framesPerStep;
+    framesPerStep = framesPerStep > 5 ? framesPerStep - 5 : framesPerStep;
     fixedTimeStep = 1.0 / framesPerStep;
   });
 
