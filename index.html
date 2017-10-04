@@ -2,109 +2,118 @@
 <html lang="en">
 
 <head>
-    <meta charset=utf-8>
-    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
-    <title>AI_maze me</title>
-    <meta name="description" content="A procedurally generated 3D maze with WebGL" />
-    <meta name="author" content="Adam Alsegard" />
-    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	<meta charset=utf-8>
+	<meta http-equiv="X-UA-Compatible" content="IE=edge" />
+	<title>AI_maze me</title>
+	<meta name="description" content="A procedurally generated 3D maze with WebGL" />
+	<meta name="author" content="Adam Alsegard" />
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 
-    <!-- Stylesheets -->
-    <link rel="stylesheet" type="text/css" href="css/style.css">
+	<!-- Stylesheets -->
+	<link rel="stylesheet" type="text/css" href="css/style.css">
 </head>
 
 <body>
 
-    <div id="help" class="centeredPopUp">
-        <h3>Help</h3>
-        <div>
-            <p>This is a procedurally generated maze. An AI agent has been trained with Q-learning to solve these kinds of mazes.</p>
-            <p>There is also an alternative to play the game with manual controls. Press the following keys to switch between
-                the different game modes: </p>
-        </div>
-        <br>
-        <div id="help-keys">
-            <p>A : AI mode. Watch the pre-trained agent solve the current maze. (Default) </p>
-            <p>P : Manual player mode. Press 'I' to show controls. </p>
-            <p>N : Start a training session for a new AI agent. </p>
-        </div>
+	<div id="help" class="centeredPopUp">
+		<h3>Help</h3>
+		<div>
+			<p>This is a procedurally generated maze. An AI agent has been trained with Q-learning to solve these kinds of mazes.</p>
+			<p>There is also an alternative to play the game with manual controls. Press the following keys to switch between the different
+				game modes: </p>
+		</div>
+		<div class="wrap">
+			<div class="commands">
+				<p>A : AI mode. Watch the pre-trained agent solve the current maze. (Default) </p>
+				<p>P : Manual player mode. Press 'I' to show controls. </p>
+				<p>N : Start a training session for a new AI agent. </p>
+			</div>
+		</div>
+	</div>
 
-    </div>
+	<div id="instructions" class="centeredPopUp">
+		<h3>Instructions</h3>
+		<p>Use the arrow keys to move the ball and find your way out of the maze before your energy is gone.</p>
+		<p>You lose some energy for every step you take. Note that brick walls are solid but bushes are not.</p>
+		<p>However, if you go through a bush, more energy is spent. The darker the bush the more energy it requires.</p>
+		<p>Good luck!</p>
+	</div>
 
-    <div id="instructions" class="centeredPopUp">
-        <h3>Instructions</h3>
-        <p>Use the arrow keys to move the ball and find your way out of the maze before your energy is gone.</p>
-        <p>You lose some energy for every step you take. Note that brick walls are solid but bushes are not.</p>
-        <p>However, if you go through a bush, more energy is spent. The darker the bush the more energy it requires.</p>
-        <p>Good luck!</p>
-    </div>
+	<div id="notes">
+		<h4>Press 'H' for Help.</h4>
+		<h4>Press 'I' for Instructions.</h4>
+		<h4>Click 'M' to show Map.</h4>
+	</div>
 
-    <div id="notes">
-        <h4>Press 'H' for Help.</h4>
-        <h4>Press 'I' for Instructions.</h4>
-        <h4>Click 'M' to show Map.</h4>
-    </div>
+	<div id="energy-decrease">
+		<h4>-XX</h4>
+	</div>
 
-    <div id="energy-decrease">
-        <h4>-XX</h4>
-    </div>
+	<div id="energy-info">
+		<h4 id="energy-left">Energy left: XXXX</h4>
+		<h4 id="distToGoal">Distance to goal: XX</h4>
+	</div>
 
-    <div id="energy-info">
-        <h4 id="energy-left">Energy left: XXXX</h4>
-    </div>
+	<div id="level-info">
+		<h4 id="agent">Agent: X</h4>
+		<h4 id="level">Level X</h4>
+		<h4 id="maze-size">Maze size: XX</h4>
+		<h4 id="training-round">Training round: X</h4>
+		<h4 id="framesPerStep">Frames per step: XX</h4>
+	</div>
 
-    <div id="level-info">
-        <h4 id="level">Level X</h4>
-        <h4 id="maze-size">Maze size: XX</h4>
-        <h4 id="training-round">Training round: X</h4>
-        <h4 id="framesPerStep"></h4>
-        <h4 id="fixedTimeStep"></h4>
-    </div>
+	<div id="maze-map">
+		<h4>Map</h4>
+		<canvas id="mapCanvas"></canvas>
+	</div>
 
-    <div id="maze-map">
-        <h4>Map</h4>
-        <canvas id="mapCanvas"></canvas>
-    </div>
+	<div id="game-ended" class="centeredPopUp">
+		<h3 id="endTitle">Game ended</h3>
+		<p id="score">Total score: XXX</p>
+		<button id="restartBtn">Restart</button>
+	</div>
 
-    <div id="game-ended" class="centeredPopUp">
-        <h3 id="endTitle">Game ended</h3>
-        <p id="score">Total score: XXX</p>
-        <button id="restartBtn">Restart</button>
-    </div>
+	<div id="ai-mode-info" class="centeredPopUp">
+		<h3>AI agent mode</h3>
+		<p>This mode will automatically play a game with the best agent.</p>
+		<p id="agentCount">Else chose a number between [0, 0] to play another agent.</p>
+		<p id="chosenAgent">Chosen agent: 0</p>
+		<div class="wrap">
+			<div class="commands">
+				<p>N : Start a new training session.</p>
+				<p>C : Continue the training for the current agent.</p>
+				<p>P : Switch to manual player mode.</p>
+				<p>S : Save current agents (Q-table) to file.</p>
+				<p>+ : Speed up training session.</p>
+				<p>- : Slow down the training session.</p>
+			</div>
+		</div>
+		<button id="start-ai">Start game</button>
+	</div>
 
-    <div id="ai-mode-info" class="centeredPopUp">
-        <h3>AI agent mode</h3>
-        <p>This mode will automatically play a game with the newest agent.</p>
-        <p id="agentCount">Else chose a number between [0, 0] to play another agent.</p>
-        <p>To start a new training session for a new agent click 'N'.</p>
-        <p>To continue the training session for this agent click 'C'.</p>
-        <p>To switch to manual player mode click 'P'.</p>
-        <p>To speed up training session press '+'</p>
-        <p>To slow down the training session press '-'</p>
+	<div id="manual-mode-info" class="centeredPopUp">
+		<h3>Manual player mode</h3>
+		<p>In this mode the player (ball) moves from user input.</p>
+		<div class="wrap">
+			<div class="commands">
+				<p>I : Show instructions.</p>
+				<p>A : Switch to AI agent mode.</p>
+			</div>
+		</div>
+		<button id="start-manual">Start game</button>
+	</div>
 
-        <button id="start-ai">Start game</button>
-    </div>
-
-    <div id="manual-mode-info" class="centeredPopUp">
-        <h3>Manual player mode</h3>
-        <p>In this mode the balls move from user input.</p>
-        <p>To show instructions press 'I'</p>
-        <p>To switch to AI agent mode click 'A'.</p>
-        <button id="start-manual">Start game</button>
-    </div>
-
-    <!-- Imported scripts -->
-    <script src="js/Detector.js"></script>
-    <script src="js/keyboard.min.js"></script>
-    <script src="js/three.js"></script>
-    <script src="js/jquery-3.2.1.min.js"></script>
-    <script src="js/cannon.js"></script>
-    <!-- TODO: change to minified before release -->
-    <!-- My logic-->
-    <script src="js/maze-generator.js"></script>
-    <script src="js/map-handler.js"></script>
-    <script src="js/ai-agent.js"></script>
-    <script src="js/main-game.js"></script>
+	<!-- Imported scripts -->
+	<script src="js/Detector.js"></script>
+	<script src="js/keyboard.min.js"></script>
+	<script src="js/three.js"></script>
+	<script src="js/jquery-3.2.1.min.js"></script>
+	<script src="js/cannon.min.js"></script>
+	<!-- My logic-->
+	<script src="js/maze-generator.js"></script>
+	<script src="js/map-handler.js"></script>
+	<script src="js/ai-agent.js"></script>
+	<script src="js/main-game.js"></script>
 </body>
 
 </html>

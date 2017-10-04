@@ -56,6 +56,7 @@ function createNewAgent() {
   };
   allAgents.push(newAgent);
   console.log('Created agent: ' + agentIndex);
+  return agentIndex;
 }
 
 // Fetch all old agents from file and return number of agents.

@@ -471,6 +471,9 @@ function gameLoop() {
       $('#maze-size').html('Maze size: ' + mazeDimension);
       $('#training-round').html('Training round: ' + getTrainingRound());
       $('#energy-left').html('Energy left: ' + energy);
+      var distToGoal = Math.round(ballBody.position.distanceTo(goalPos));
+      $('#distToGoal').html('Distance to goal: ' + distToGoal);
+      $('#framesPerStep').html('Frames per step: ' + framesPerStep);
       displayed = false;
 
       // Switch game state.
@@ -515,15 +518,14 @@ function gameLoop() {
       // Update info.
       energy -= energySpent();
       $('#energy-left').html('Energy left: ' + energy);
-      $('#framesPerStep').html('framesPerStep: ' + framesPerStep);
-      $('#fixedTimeStep').html(
-        'fixedTimeStep: ' + Math.round(1000.0 * fixedTimeStep) / 1000
-      );
+      var distToGoal = Math.round(ballBody.position.distanceTo(goalPos));
+      $('#distToGoal').html('Distance to goal: ' + distToGoal);
+      $('#framesPerStep').html('Frames per step: ' + framesPerStep);
 
       // If we are in a training session we want to continue until max iterations, so we can learn even after we reach the goal state.
       if (trainAI) {
         if (stepsTaken > maxTraining || energy <= 0) {
-          //if (stepsTaken > maxTraining || energy <= 0 || (Math.floor(ballMesh.position.x + 0.5) == mazeDimension-1 && Math.floor(ballMesh.position.y + 0.5) == mazeDimension - 2)) {
+          //if (stepsTaken > maxTraining || energy <= 0 || ballBody.position.almostEquals(goalPos, 0.3)) {
           stepsTaken = 0;
           gameState = 'fadeOut';
         }
@@ -536,9 +538,6 @@ function gameLoop() {
 
         // Check for victory.
         if (ballBody.position.almostEquals(goalPos, 0.3)) {
-          //var mazeX = Math.floor(ballMesh.position.x + 0.5);
-          //var mazeY = Math.floor(ballMesh.position.y + 0.5);
-          //if (mazeX == mazeDimension-1 && mazeY == mazeDimension - 2) {
           win = true;
           gameState = 'fadeOut';
         }
@@ -650,6 +649,7 @@ $('#start-ai').click(() => {
 
   // Fetch an old agent and start playing.
   setOldAgent(agentToUse);
+  $('#agent').html('Agent: ' + agentToUse);
   trainAI = false;
   gameMode = 'ai';
   gameState = 'initLevel';
@@ -659,6 +659,7 @@ $('#start-manual').click(() => {
   // Hide pop up on click and save any possible AI agents if training was in session!
   $('#manual-mode-info').hide();
   agentToUse = saveAgent();
+  $('#agent').html('Agent: None');
   gameMode = 'manual';
   gameState = 'initLevel';
 });
@@ -755,7 +756,8 @@ $(document).ready(function() {
 
     // Start new AI agent traning session.
     gameMode = 'ai';
-    createNewAgent();
+    agentToUse = createNewAgent();
+    $('#agent').html('Agent: ' + agentToUse);
     trainAI = true;
     gameState = 'initLevel';
   });
@@ -796,6 +798,7 @@ $(document).ready(function() {
   ) {
     agentToUse = parseInt(e.key);
     console.log('Chosen agent: ' + agentToUse);
+    $('#chosenAgent').html('Chosen agent: ' + agentToUse);
   });
 
   // Create the WebGL renderer.
@@ -832,6 +835,7 @@ $(document).ready(function() {
         '] to play another agent.'
     );
   });
+  $('#agent').html('Agent: None');
 
   // Init first level.
   gameState = 'initLevel';

@@ -21,9 +21,12 @@ h4 {
   border: 2px solid white;
 }
 
-/* Text inside help pop-up*/
-#help-keys {
-  padding-left: 15em;
+/* Command text inside pop-ups */
+.wrap {
+  text-align: center;
+}
+.commands {
+  display: inline-block;
   text-align: left;
 }
 
