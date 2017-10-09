@@ -17,15 +17,17 @@ var trainingRound = 0,
   learningRate = 0.8, // This value will start high and then go small.
   explorationRate = 0.5, // This value will decrease over time.
   explorationRatePlay = 0.1,
+  transitionRate = 0.5,
+  pingPongTimes = 0,
   actions = [
     new THREE.Vector2(-1, 0), // Left
     new THREE.Vector2(0, 1), // Up
     new THREE.Vector2(1, 0), // Right
     new THREE.Vector2(0, -1) // Down
   ],
-  goalPos = new THREE.Vector2(0, 0),
+  goalPosAI = new THREE.Vector2(0, 0),
   currentPos = new THREE.Vector2(0, 0),
-  lastPos = new THREE.Vector2(0, 0),
+  lastPosAI = new THREE.Vector2(0, 0),
   currentState = 0,
   earlierDistance = 0;
 
@@ -88,8 +90,8 @@ function setOldAgent(agentToUse) {
 function initAgent(trainAI, maze, ballInitPos, mazeDimension, initGoalPos) {
   // Set parameters for this iteration.
   isTraining = trainAI;
-  goalPos.copy(initGoalPos);
-  currentPos.copy(ballInitPos);
+  goalPosAI.copy(new THREE.Vector2(initGoalPos.x, initGoalPos.y));
+  currentPos.copy(new THREE.Vector2(ballInitPos.x, ballInitPos.y));
   currentMaze = maze.map(arr => {
     return arr.slice();
   });
@@ -103,7 +105,7 @@ function initAgent(trainAI, maze, ballInitPos, mazeDimension, initGoalPos) {
 
   // Calculate new features and set starting state.
   features = new Array(NRFEATURES).fill(1.0);
-  earlierDistance = currentPos.distanceToManhattan(goalPos);
+  earlierDistance = currentPos.distanceToManhattan(goalPosAI);
   calculateFeatures(currentPos);
   currentState = getStateFromFeatures(features);
 }
@@ -154,14 +156,14 @@ function getNextAIStep() {
   } while (!isValidMove(tempPos));
 
   updateQTable(currentState, moveIdx, currentPos);
-  lastPos.copy(currentPos);
+  lastPosAI.copy(currentPos);
   currentPos.add(actions[moveIdx]);
   calculateFeatures(currentPos);
   currentState = getStateFromFeatures(features);
 
   // Update visited matrix and return move.
   visitedMaze[currentPos.x][currentPos.y] = true;
-  earlierDistance = currentPos.distanceToManhattan(goalPos);
+  earlierDistance = currentPos.distanceToManhattan(goalPosAI);
   return actions[moveIdx];
 }
 
@@ -174,7 +176,7 @@ function roundEnded(energyLeft) {
   trainingRound++;
 
   // Save latest iteration of the agent.
-  if (trainingRound % 100 == 0) {
+  if (trainingRound % 50 == 0) {
     // Update learning and exploration rates
     learningRate = learningRate > 0.2 ? learningRate - 0.05 : learningRate;
     explorationRate =
@@ -253,7 +255,11 @@ function getBestMove(state) {
   });
   var max = -Infinity;
   var bestIndex = -1;
+  var newPos = new THREE.Vector2();
   values.forEach((val, idx) => {
+    newPos.copy(currentPos);
+    newPos.add(actions[idx]);
+    val += getTransitionReward(newPos) * transitionRate;
     if (max < val) {
       max = val;
       bestIndex = idx;
@@ -281,7 +287,19 @@ function isValidMove(pos) {
 // Returns the reward for this transition.
 function getTransitionReward(pos) {
   var reward = 0;
-  // Sanity check that we're still inside the maze
+
+  // Incooperate the difference to goal as reward.
+  var dist = calcGoalDist(pos);
+  var diff = earlierDistance - dist;
+  reward = diff == 0 ? 10 : diff * 2;
+
+  // Get a negative reward if we revisit the same state we just came from.
+  if (pos.distanceTo(lastPosAI) < 0.5) {
+    pingPongTimes++;
+    reward -= pingPongTimes;
+  } 
+
+  // Sanity check that we're still inside the maze before checking visitedMaze.
   if (
     pos.x < 1 ||
     pos.x >= currentMaze.length - 1 ||
@@ -291,19 +309,10 @@ function getTransitionReward(pos) {
     return reward;
   }
 
-  // Incooperate the difference to goal as reward.
-  var dist = calcGoalDist(pos);
-  var diff = earlierDistance - dist;
-  reward = diff == 0 ? 10 : diff*3;
-
-  // Double the negative reward if we revisit the same state we just came from. 
-  if(pos.equals(lastPos)) {
-    reward -= 1;
-  }
-
   // Get bonus if we explore an unvisited state.
-  if (!visitedMaze[pos.x][pos.y]) {
-    reward += 5;
+  if (!visitedMaze[pos.x][pos.y] && currentMaze[pos.x][pos.y] != 2) {
+    reward += 3;
+    pingPongTimes = 0;
   }
 
   return reward;
@@ -312,7 +321,7 @@ function getTransitionReward(pos) {
 // Returns the reward of this position.
 function getReward(pos) {
   // Check if we've reached the goal.
-  if (pos.equals(goalPos)) {
+  if (pos.equals(goalPosAI)) {
     console.log('Reached goal!');
     return 30;
   } else if (
@@ -416,7 +425,7 @@ function getVisited(direction, pos) {
 
 // Return the euclidean distance to goal state.
 function calcGoalDist(pos) {
-  return pos.distanceToManhattan(goalPos);
+  return pos.distanceToManhattan(goalPosAI);
 }
 
 // Calculate the feature values for this posiiton.

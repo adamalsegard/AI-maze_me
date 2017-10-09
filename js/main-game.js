@@ -42,13 +42,13 @@ var agentToUse = 0,
   numberOfAgents = 0,
   trainAI = false,
   stepsTaken = 0,
-  maxTraining = 300,
-  increaseMazeSizeAfterXRounds = 200;
+  maxTrainingSteps = 500,
+  increaseMazeSizeAfterXRounds = 50;
 
 // Game parameters
 var energy = 0,
-  initEnergy = 1000,
-  mazeDimension = 11, // TODO: Change back to 11!
+  initEnergy = 2000,
+  mazeDimension = 19, // TODO: Change back to 11!
   framesPerStep = 5, // TODO: Change back to 60!
   DEFAULT_AI_FPS = 10,
   score = 0,
@@ -64,21 +64,21 @@ var energy = 0,
   win = false;
 
 // Load textures
-var gravel1Texture = textureLoader.load('./tex/gravel1.jpg'),
-  gravel2Texture = textureLoader.load('./tex/gravel2.jpg'),
+var ballTexture = textureLoader.load('./tex/ball.png'),
+  brickTexture = textureLoader.load('./tex/brick.png'),
+  bushLight1Texture = textureLoader.load('./tex/bush_light1.jpg'),
+  gravel1Texture = textureLoader.load('./tex/gravel1.jpg'),
+  /*gravel2Texture = textureLoader.load('./tex/gravel2.jpg'),
   stoneTexture = textureLoader.load('./tex/stone.jpg'),
   stoneRoadTexture = textureLoader.load('./tex/stone_road.jpg'),
-  bushLight1Texture = textureLoader.load('./tex/bush_light1.jpg'),
   bushLight2Texture = textureLoader.load('./tex/bush_light2.jpg'),
   bushMed1Texture = textureLoader.load('./tex/bush_med1.jpg'),
   bushMed2Texture = textureLoader.load('./tex/bush_med2.jpg'),
   bushDark1Texture = textureLoader.load('./tex/bush_dark1.png'),
   bushDark2Texture = textureLoader.load('./tex/bush_dark2.jpg'),
-  ballTexture = textureLoader.load('./tex/ball.png'),
-  brickTexture = textureLoader.load('./tex/brick.png'),
   waterLightTexture = textureLoader.load('./tex/water_light.jpg'),
   waterMedTexture = textureLoader.load('./tex/water_medium.png'),
-  waterDarkTexture = textureLoader.load('./tex/water_dark.png'),
+  waterDarkTexture = textureLoader.load('./tex/water_dark.png'),*/
   bushLightSub = 5,
   bushMedSub = 10,
   bushDarkSub = 15,
@@ -526,8 +526,12 @@ function gameLoop() {
 
       // If we are in a training session we want to continue until max iterations, so we can learn even after we reach the goal state.
       if (trainAI) {
-        if (stepsTaken > maxTraining || energy <= 0) {
-          //if (stepsTaken > maxTraining || energy <= 0 || ballBody.position.almostEquals(goalPos, 0.3)) {
+        //if (stepsTaken > maxTrainingSteps || energy <= 0) {
+        if (
+          stepsTaken > maxTrainingSteps ||
+          energy <= 0 ||
+          ballBody.position.almostEquals(goalPos, 0.3)
+        ) {
           stepsTaken = 0;
           gameState = 'fadeOut';
         }
@@ -786,6 +790,11 @@ $(document).ready(function() {
     if (gameMode == 'ai') {
       agentToUse = saveAgent();
     }
+  });
+
+  // Bind 'R' key to restart current level.
+  keyboardJS.bind('r', function() {
+    gameState = 'initLevel';
   });
 
   // Bind '+' key to Increase training speed.
