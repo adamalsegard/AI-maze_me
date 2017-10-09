@@ -433,11 +433,13 @@ function gameLoop() {
       // Place goal at further end from player.
       // Ensure that goal is at an odd number in range [1, mazeDim-2]
       if (Math.random() < 0.5) {
-        goalPos.x = (ballInitPos.x < mazeDimension / 2) ? mazeDimension - 1 : 0;
-        goalPos.y = (Math.floor(Math.random() * ((mazeDimension - 3) / 2)) * 2) + 1;
+        goalPos.x = ballInitPos.x < mazeDimension / 2 ? mazeDimension - 1 : 0;
+        goalPos.y =
+          Math.floor(Math.random() * ((mazeDimension - 3) / 2)) * 2 + 1;
       } else {
-        goalPos.x = (Math.floor(Math.random() * ((mazeDimension - 3) / 2)) * 2) + 1;
-        goalPos.y = (ballInitPos.y < mazeDimension / 2) ? mazeDimension - 1 : 0;
+        goalPos.x =
+          Math.floor(Math.random() * ((mazeDimension - 3) / 2)) * 2 + 1;
+        goalPos.y = ballInitPos.y < mazeDimension / 2 ? mazeDimension - 1 : 0;
       }
 
       // Init maze field and use it for physics and rendering.
@@ -613,7 +615,7 @@ function onResize() {
   $('#manual-mode-info').center();
 }
 
-jQuery.fn.centerv = function() {
+jQuery.fn.centerH = function() {
   wh = window.innerHeight;
   h = this.outerHeight();
   this.css('position', 'absolute');
@@ -621,7 +623,7 @@ jQuery.fn.centerv = function() {
   return this;
 };
 
-jQuery.fn.centerh = function() {
+jQuery.fn.centerW = function() {
   ww = window.innerWidth;
   w = this.outerWidth();
   this.css('position', 'absolute');
@@ -630,8 +632,8 @@ jQuery.fn.centerh = function() {
 };
 
 jQuery.fn.center = function() {
-  this.centerv();
-  this.centerh();
+  this.centerH();
+  this.centerW();
   return this;
 };
 
@@ -677,6 +679,7 @@ $(document).ready(function() {
   // Prepare the 'Instructions' window. Bind 'I' key to hide/show window with PRESS.
   $('#instructions')
     .center()
+    .center()
     .hide();
   keyboardJS.bind(
     'i',
@@ -691,6 +694,7 @@ $(document).ready(function() {
   // Prepare the 'Help' window. Bind 'H' key to hide/show window iwth PRESS.
   $('#help')
     .center()
+    .center()
     .hide();
   keyboardJS.bind(
     'h',
@@ -702,6 +706,7 @@ $(document).ready(function() {
     }
   );
   $('#game-ended')
+    .center()
     .center()
     .hide();
 
@@ -716,7 +721,9 @@ $(document).ready(function() {
   });
 
   // Bind 'A' key to 'AI Mode'. Start by DEFAULT.
-  $('#ai-mode-info').center();
+  $('#ai-mode-info')
+    .center()
+    .center();
   keyboardJS.bind('a', function() {
     if (gameMode != 'ai') {
       // Show pop up with info and switch to start AI agent loop.
@@ -737,6 +744,7 @@ $(document).ready(function() {
 
   // Bind 'P' key to 'Manual Player Mode'.
   $('#manual-mode-info')
+    .center()
     .center()
     .hide();
   keyboardJS.bind('p', function() {

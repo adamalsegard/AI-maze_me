@@ -294,7 +294,7 @@ function getTransitionReward(pos) {
   // Incooperate the difference to goal as reward.
   var dist = calcGoalDist(pos);
   var diff = earlierDistance - dist;
-  reward += diff*3;
+  reward = diff == 0 ? 10 : diff*3;
 
   // Double the negative reward if we revisit the same state we just came from. 
   if(pos.equals(lastPos)) {
@@ -323,6 +323,7 @@ function getReward(pos) {
   ) {
     // Still needed because we update the table for invalid moves as well.
     // NOT ANYMORE: Remove?
+    console.log("Shouldn't happen!");
     return -20;
   }
 
@@ -337,6 +338,7 @@ function getReward(pos) {
       return -5;
     case 2:
       // Wall
+      console.log("Shouldn't happen - wall!");
       return -20;
   }
 }
