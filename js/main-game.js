@@ -37,6 +37,20 @@ var camera = undefined,
   intersectedObjectId = -1,
   nrOfDifferentMaterials = 2; // Remember to change in maze-generator as well!
 
+// VS parameters
+var lightVS = undefined,
+  energyVS = 0,
+  framesPerStepVS = 10, // TODO
+  scoreVS = 0,
+  ballBodyVS = undefined,
+  ballMeshVS = undefined,
+  ballInitPosVS = new CANNON.Vec3(1, 1, ballRadius),
+  lastPosVS = new CANNON.Vec3(),
+  intersectedObjectIdVS = -1,
+  levelsCompleted = 0,
+  MAX_LEVELS_FOR_ONE_GAME = 10,
+  AIwin = false;
+
 // AI parameters (changable)
 var agentToUse = 0,
   numberOfAgents = 0,
@@ -146,6 +160,17 @@ function createPhysicsWorld() {
     material: ballMaterial
   });
   globalWorld.addBody(ballBody);
+
+  // Create another ball if we're in Versus mode.
+  if (gameMode == 'versus') {
+    ballBodyVS = new CANNON.Body({
+      mass: 0,
+      position: ballInitPosVS,
+      shape: new CANNON.Sphere(ballRadius),
+      material: ballMaterial
+    });
+    globalWorld.addBody(ballBodyVS);
+  }
 
   // Create the maze.
   for (var i = 0; i < maze.dimension; i++) {
@@ -261,6 +286,24 @@ function createRenderWorld() {
   groundMesh.position.set((mazeDimension - 1) / 2, (mazeDimension - 1) / 2, 0);
   groundMesh.receiveShadow = true;
   scene.add(groundMesh);
+
+  // Create everything for Versus mode.
+  if (gameMode == 'versus') {
+    // Create another light to follow AI.
+    lightVS = new THREE.PointLight(0xffffff, 1, 15, 2);
+    lightVS.position.set(ballBodyVS.position.x, ballBodyVS.position.y, 1.1);
+    lightVS.castShadow = true;
+    scene.add(lightVS);
+
+    // In this mode we'll always use shadows.
+    light.position.set(ballBody.position.x, ballBody.position.y, 1.1);
+    light.castShadow = true;
+
+    // Create the AI ball and add to scene.
+    ballMeshVS = new THREE.Mesh(ballGeo, ballMat);
+    ballMeshVS.position.copy(ballInitPosVS);
+    scene.add(ballMeshVS);
+  }
 }
 
 /**
@@ -328,10 +371,28 @@ function updatePhysicsWorld() {
       0.0
     );
     ballBody.position.vadd(addVector, ballBody.position);
+  } else if (gameMode == 'versus') {
+    // Apply both user-directed force and AI positioning!
+    var inputForce = new CANNON.Vec3(
+      keyAxis[0] * ballBody.mass * 0.25,
+      keyAxis[1] * ballBody.mass * 0.25,
+      0.0
+    );
+    // User
+    ballBody.applyImpulse(inputForce, ballBody.position);
+    keyAxis = [0, 0];
+
+    // AI
+    var addVector = new CANNON.Vec3(
+      nextStepAI.x * fixedTimeStep,
+      nextStepAI.y * fixedTimeStep,
+      0.0
+    );
+    ballBodyVS.position.vadd(addVector, ballBodyVS.position);
   }
 
   // Take a time step.
-  globalWorld.step(fixedTimeStep);
+  globalWorld.step(fixedTimeStep); // TODO!
 }
 
 // Update THREE render.
@@ -374,8 +435,50 @@ function updateRenderWorld() {
   ) {
     // Subtract energy for type of entered material.
     // This will not subtract if the same object is entered several time *in a row*!
-    materialEntered(intersections[0].object.name);
+    materialEntered(intersections[0].object.name, false);
     intersectedObjectId = intersections[0].object.id;
+  }
+
+  // Update AI parameters when in versus mode.
+  if (gameMode == 'versus') {
+    // Update AI position and rotation.
+    ballMeshVS.position.copy(ballBodyVS.position);
+    ballMeshVS.quaternion.copy(ballBodyVS.quaternion);
+
+    // Update AI light.
+    lightVS.position.x += (ballMeshVS.position.x - lightVS.position.x) * 0.1;
+    lightVS.position.y += (ballMeshVS.position.y - lightVS.position.y) * 0.1;
+
+    // AI: Check for intersection with non-solid materials.
+    raycaster.set(ballMeshVS.position, new THREE.Vector3(1, 0, 0));
+    var intersectionsVS = raycaster.intersectObjects(intersectMeshes);
+    raycaster.set(ballMeshVS.position, new THREE.Vector3(-1, 0, 0));
+    intersectionsVS.push.apply(
+      intersectionsVS,
+      raycaster.intersectObjects(intersectMeshes)
+    );
+    raycaster.set(ballMeshVS.position, new THREE.Vector3(0, 1, 0));
+    intersectionsVS.push.apply(
+      intersectionsVS,
+      raycaster.intersectObjects(intersectMeshes)
+    );
+    raycaster.set(ballMeshVS.position, new THREE.Vector3(0, -1, 0));
+    intersectionsVS.push.apply(
+      intersectionsVS,
+      raycaster.intersectObjects(intersectMeshes)
+    );
+
+    intersectionsVS.sort();
+    if (
+      intersectionsVS.length > 0 &&
+      intersectionsVS[0].distance < ballRadius &&
+      intersectionsVS[0].object.id != intersectedObjectIdVS
+    ) {
+      // Subtract energy for type of entered material.
+      // This will not subtract if the same object is entered several time *in a row*!
+      materialEntered(intersectionsVS[0].object.name, true);
+      intersectedObjectIdVS = intersectionsVS[0].object.id;
+    }
   }
 }
 
@@ -385,7 +488,7 @@ function energySpent() {
   var moved = ballBody.position.vsub(lastPos);
 
   // Only return if moved move than one square!
-  if (moved.length() >= 0.95) {
+  if (moved.length() >= 0.98) {
     // Also update the path in map scene.
     updateLinePath();
     lastPos.copy(ballBody.position);
@@ -395,26 +498,51 @@ function energySpent() {
   }
 }
 
+// Update energy for AI in versus mode.
+function energySpentVS() {
+  // Calculate distance moved since last subtraction.
+  var moved = ballBodyVS.position.vsub(lastPosVS);
+
+  // Only return if moved move than one square!
+  if (moved.length() >= 0.98) {
+    // Also update the path in map scene.
+    updateLinePathVS();
+    lastPosVS.copy(ballBodyVS.position);
+    return Math.round(moved.length());
+  } else {
+    return 0;
+  }
+}
+
 // Return sum to subtract when player (ball) entered a non-solid material in the maze.
-function materialEntered(materialType) {
+function materialEntered(materialType, isAIinVS) {
+  var sum = 0;
   switch (materialType) {
     case 'bushLight':
-      animateEnergySubtraction(bushLightSub);
-      energy -= bushLightSub;
+      animateEnergySubtraction(bushLightSub, isAIinVS);
+      sum -= bushLightSub;
       break;
     case 'bushMed':
-      animateEnergySubtraction(bushMedSub);
-      energy -= bushMedSub;
+      animateEnergySubtraction(bushMedSub, isAIinVS);
+      sum -= bushMedSub;
       break;
     case 'bushDark':
-      animateEnergySubtraction(bushDarkSub);
-      energy -= bushDarkSub;
+      animateEnergySubtraction(bushDarkSub, isAIinVS);
+      sum -= bushDarkSub;
       break;
+  }
+  if (isAIinVS) {
+    energyVS -= sum;
+  } else {
+    energy -= sum;
   }
 }
 
 // Animate energy subtraction when a material was entered.
-function animateEnergySubtraction(subtractedSum) {
+function animateEnergySubtraction(subtractedSum, isAIinVS) {
+  var topString = isAIinVS ? '8vw' : '1vw';
+  var leftString = isAIinVS ? 'calc(1vw + 145px)' : 'calc(1vw + 125px)';
+  $('#energy-decrease').css({ top: topString, left: leftString });
   $('#energy-decrease').html('-' + subtractedSum);
   $('#energy-decrease').removeClass('run-animation');
   void $('#energy-decrease').width();
@@ -442,8 +570,22 @@ function gameLoop() {
         goalPos.y = ballInitPos.y < mazeDimension / 2 ? mazeDimension - 1 : 0;
       }
 
+      // Create AI parameters if we're in Versus mode.
+      if (gameMode == 'versus') {
+        ballInitPosVS.x = Math.floor(Math.random() * (mazeDimension - 3)) + 1;
+        ballInitPosVS.y = Math.floor(Math.random() * (mazeDimension - 3)) + 1;
+
+        energyVS = initEnergy + completedLevelBonus;
+        lastPosVS.copy(ballInitPosVS);
+      }
+
       // Init maze field and use it for physics and rendering.
-      maze = generateSquareMaze(mazeDimension, ballInitPos, goalPos);
+      maze = generateSquareMaze(
+        mazeDimension,
+        ballInitPos,
+        ballInitPosVS,
+        goalPos
+      );
       createPhysicsWorld();
       createRenderWorld();
 
@@ -458,6 +600,13 @@ function gameLoop() {
         ballBody.updateMassProperties();
         ballBody.velocity.set(0, 0, 0);
         ballBody.angularVelocity.set(0, 0, 0);
+        nextStepAI = new THREE.Vector2(0, 0);
+      } else if (gameMode == 'versus') {
+        initAgent(trainAI, maze, ballInitPosVS, mazeDimension, goalPos);
+        ballBodyVS.mass = 0;
+        ballBodyVS.updateMassProperties();
+        ballBodyVS.velocity.set(0, 0, 0);
+        ballBodyVS.angularVelocity.set(0, 0, 0);
         nextStepAI = new THREE.Vector2(0, 0);
       } else {
         ballBody.mass = 1;
@@ -477,6 +626,12 @@ function gameLoop() {
       $('#distToGoal').html('Distance to goal: ' + distToGoal);
       $('#framesPerStep').html('Frames per step: ' + framesPerStep);
       displayed = false;
+
+      if (gameMode == 'versus') {
+        $('#versus-energy-left').html('AI energy left: ' + energy);
+        var distToGoalVS = Math.round(ballBodyVS.position.distanceTo(goalPos));
+        $('#distToGoalVS').html('AI distance to goal: ' + distToGoalVS);
+      }
 
       // Switch game state.
       gameState = 'fadeIn';
@@ -505,6 +660,16 @@ function gameLoop() {
           stepsTaken++;
         }
         iter++;
+      } else if (gameMode == 'versus') {
+        // Update camera from user input and get next step for AI.
+        updateCameraPosition();
+        if (iter % framesPerStep == 0) {
+          // TODO!
+          nextStepAI = getNextAIStep();
+          iter = 0;
+          stepsTaken++;
+        }
+        iter++;
       } else {
         // gameMode is undefined, pause everything!
       }
@@ -524,6 +689,13 @@ function gameLoop() {
       $('#distToGoal').html('Distance to goal: ' + distToGoal);
       $('#framesPerStep').html('Frames per step: ' + framesPerStep);
 
+      if (gameMode == 'versus') {
+        energyVS -= energySpentVS();
+        $('#versus-energy-left').html('AI energy left: ' + energyVS);
+        var distToGoalVS = Math.round(ballBodyVS.position.distanceTo(goalPos));
+        $('#distToGoalVS').html('AI distance to goal: ' + distToGoalVS);
+      }
+
       // If we are in a training session we want to continue until max iterations, so we can learn even after we reach the goal state.
       if (trainAI) {
         //if (stepsTaken > maxTrainingSteps || energy <= 0) {
@@ -535,13 +707,30 @@ function gameLoop() {
           stepsTaken = 0;
           gameState = 'fadeOut';
         }
+      } else if (gameMode == 'versus') {
+        // TODO: Change how players get points!
+        if (energy <= 0 && energyVS <= 0) {
+          // Check if both have lost.
+          win = false;
+          AIwin = false;
+          gameState = 'fadeOut';
+        } else if (ballBody.position.almostEquals(goalPos, 0.3)) {
+          // Else check for victory for User.
+          win = true;
+          AIwin = false;
+          gameState = 'fadeOut';
+        } else if (ballBodyVS.position.almostEquals(goalPos, 0.3)) {
+          // Else check for victory for AI.
+          win = false;
+          AIwin = true;
+          gameState = 'fadeOut';
+        }
       } else {
         // Check for loss.
         if (energy <= 0) {
           win = false;
           gameState = 'fadeOut';
         }
-
         // Check for victory.
         if (ballBody.position.almostEquals(goalPos, 0.3)) {
           win = true;
@@ -565,6 +754,10 @@ function gameLoop() {
           }
           roundEnded(energy);
           gameState = 'initLevel';
+        } else if (gameMode == 'versus') {
+          gameState = 'versusEnd';
+          levelsCompleted++;
+          mazeDimension += 2;
         } else if (win) {
           gameState = 'victory';
           mazeDimension += 2;
@@ -597,6 +790,28 @@ function gameLoop() {
         displayed = true;
       }
       break;
+
+    case 'versusEnd':
+      // One round in versus battle completed. Show the correct div.
+      if (!displayed) {
+        completedLevelBonus += 50;
+        score += energy;
+        scoreVS += energyVS;
+        if (levelsCompleted == MAX_LEVELS_FOR_ONE_GAME) {
+          $('#endTitleVS').html('Game ended!');
+          $('#scoreP').html('Final score Player: ' + score);
+          $('#scoreVS').html('Final score AI: ' + scoreVS);
+          $('#restartBtnVS').html('New game');
+        } else {
+          $('#endTitleVS').html('Level ended');
+          $('#scoreP').html('Total score Player: ' + score);
+          $('#scoreVS').html('Total score AI: ' + scoreVS);
+          $('#restartBtnVS').html('Next level');
+        }
+        $('#versus-game-ended').show();
+        displayed = true;
+      }
+      break;
   }
 
   requestAnimationFrame(gameLoop);
@@ -615,8 +830,10 @@ function onResize() {
   $('#instructions').center();
   $('#help').center();
   $('#game-ended').center();
+  $('#versus-game-ended').center();
   $('#ai-mode-info').center();
   $('#manual-mode-info').center();
+  $('#versus-mode-info').center();
 }
 
 jQuery.fn.centerH = function() {
@@ -656,6 +873,7 @@ $('#start-ai').click(() => {
   // Fetch an old agent and start playing.
   setOldAgent(agentToUse);
   $('#agent').html('Agent: ' + agentToUse);
+  $('#versus-energy-info').hide();
   trainAI = false;
   gameMode = 'ai';
   gameState = 'initLevel';
@@ -664,15 +882,43 @@ $('#start-ai').click(() => {
 $('#start-manual').click(() => {
   // Hide pop up on click and save any possible AI agents if training was in session!
   $('#manual-mode-info').hide();
-  agentToUse = saveAgent();
+  if (trainAI) {
+    agentToUse = saveAgent();
+    trainAI = false;
+  }
   $('#agent').html('Agent: None');
+  $('#versus-energy-info').hide();
   gameMode = 'manual';
+  gameState = 'initLevel';
+});
+
+$('#start-versus').click(() => {
+  // Hide pop up on click and save any possible AI agents if training was in session!
+  $('#versus-mode-info').hide();
+  if (trainAI) {
+    agentToUse = saveAgent();
+    trainAI = false;
+  }
+  // Let user decide what agent to play against.
+  if (agentToUse < 0 || agentToUse >= numberOfAgents) {
+    agentToUse = numberOfAgents > 0 ? numberOfAgents - 1 : 0;
+  }
+  setOldAgent(agentToUse);
+  $('#agent').html('Opponent: ' + agentToUse);
+  $('#versus-energy-info').show();
+  gameMode = 'versus';
+  levelsCompleted = 0;
   gameState = 'initLevel';
 });
 
 $('#restartBtn').click(() => {
   // Start next level.
   $('#game-ended').hide();
+  gameState = 'initLevel';
+});
+$('#restartBtnVS').click(() => {
+  // Start next level.
+  $('#versus-game-ended').hide();
   gameState = 'initLevel';
 });
 
@@ -714,6 +960,11 @@ $(document).ready(function() {
     .center()
     .hide();
 
+  $('#versus-game-ended')
+    .center()
+    .center()
+    .hide();
+
   // Prepare the 'Map' window. Bind 'M' key to hide/show map with CLICK.
   $('#maze-map').hide();
   keyboardJS.bind('m', function() {
@@ -742,6 +993,7 @@ $(document).ready(function() {
         );
       });
       $('#manual-mode-info').hide();
+      $('#versus-mode-info').hide();
       $('#ai-mode-info').show();
     }
   });
@@ -756,15 +1008,39 @@ $(document).ready(function() {
       // Show pop up with info and switch to start Manual player loop.
       gameMode = undefined;
       $('#ai-mode-info').hide();
+      $('#versus-mode-info').hide();
       $('#manual-mode-info').show();
     }
   });
+
+  // Bind 'V' key to 'Versus Mode'.
+  $('#versus-mode-info')
+    .center()
+    .center()
+    .hide();
+  keyboardJS.bind('v', function() {
+    if (gameMode != 'versus') {
+      // Show pop up with info and switch to start Manual player loop.
+      gameMode = undefined;
+      fetchOldAgents(result => {
+        numberOfAgents = result;
+        $('#availableAgents').html(
+          'Available agents: [0, ' + (numberOfAgents - 1) + ']'
+        );
+      });
+      $('#ai-mode-info').hide();
+      $('#manual-mode-info').hide();
+      $('#versus-mode-info').show();
+    }
+  });
+  $('#versus-energy-info').hide();
 
   // Bind 'N' key to New training session.
   keyboardJS.bind('n', function() {
     // Hide (eventually) open windows
     $('#ai-mode-info').hide();
     $('#manual-mode-info').hide();
+    $('#versus-mode-info').hide();
 
     // Start new AI agent traning session.
     gameMode = 'ai';
@@ -816,6 +1092,7 @@ $(document).ready(function() {
     agentToUse = parseInt(e.key);
     console.log('Chosen agent: ' + agentToUse);
     $('#chosenAgent').html('Chosen agent: ' + agentToUse);
+    $('#opponent').html('Opponent: ' + agentToUse);
   });
 
   // Create the WebGL renderer.
@@ -850,6 +1127,9 @@ $(document).ready(function() {
       'Else chose a number between [0, ' +
         (numberOfAgents - 1) +
         '] to play another agent.'
+    );
+    $('#availableAgents').html(
+      'Available agents: [0, ' + (numberOfAgents - 1) + ']'
     );
   });
   $('#agent').html('Agent: None');

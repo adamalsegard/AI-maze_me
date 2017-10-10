@@ -54,10 +54,21 @@ h4 {
   background-color: rgba(43, 43, 43, 0.75);
 }
 
+/* Directly under other energy */
+#versus-energy-info {
+  position: absolute;
+  left: 1vw;
+  top: 8vw;
+  padding: 1vh;
+  color: #a0a0a0;
+  display: block;
+  border: 2px solid #636363;
+  background-color: rgba(43, 43, 43, 0.75);
+}
+
 /* Energy-subtraction animation (webkit browsers) */
 @-webkit-keyframes energySub {
   0% {
-    top: 1vw;
     opacity: 0.0;
   }
   20% {
@@ -75,7 +86,6 @@ h4 {
 /* Energy-subtraction animation */
 @keyframes energySub {
   0% {
-    top: 1vw;
     opacity: 0.0;
   }
   20% {

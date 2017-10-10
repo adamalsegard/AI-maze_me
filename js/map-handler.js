@@ -13,6 +13,13 @@ var mapCamera = undefined,
   nrOfPointsToDraw = 1,
   vertIndex = 0;
 
+// Versus mode variables.
+var mapBallVS = undefined,
+  mapLineVS = undefined,
+  lineVerticesVS = undefined,
+  nrOfPointsToDrawVS = 1,
+  vertIndexVS = 0;
+
 // Load textures.
 var textureLoader = new THREE.TextureLoader(),
   mapBushTex = textureLoader.load('./tex/bush_light1.jpg'),
@@ -100,6 +107,32 @@ function createMap(field) {
   lineVertices[vertIndex++] = mapBall.position.y;
   lineVertices[vertIndex++] = mapBall.position.z;
   mapScene.add(mapLine);
+
+  // Add second ball if we're in versus mode
+  if (gameMode == 'versus') {
+    mapBallVS = new THREE.Mesh(ballGeo, ballMat);
+    mapBallVS.position.copy(ballInitPosVS);
+    mapBallVS.position.add(new THREE.Vector3(0.5, 0.5, 0));
+    mapBallVS.position.multiplyScalar(aspect);
+    mapScene.add(mapBallVS);
+
+    // Reset values if level was completed.
+    nrOfPointsToDrawVS = 1;
+    vertIndexVS = 0;
+
+    // Create line for ball's path.
+    var lineMatVS = new THREE.LineBasicMaterial({ color: 0xff420e });
+    var lineGeoVS = new THREE.BufferGeometry();
+    var positionsVS = new Float32Array(MAX_POINTS * 3); // 3 vertices
+    lineGeoVS.addAttribute('position', new THREE.BufferAttribute(positionsVS, 3));
+    lineGeoVS.setDrawRange(0, nrOfPointsToDrawVS);
+    mapLineVS = new THREE.Line(lineGeoVS, lineMatVS);
+    lineVerticesVS = mapLineVS.geometry.attributes.position.array;
+    lineVerticesVS[vertIndexVS++] = mapBallVS.position.x;
+    lineVerticesVS[vertIndexVS++] = mapBallVS.position.y;
+    lineVerticesVS[vertIndexVS++] = mapBallVS.position.z;
+    mapScene.add(mapLineVS);
+  }
 }
 
 // Called every render to update the map.
@@ -110,6 +143,13 @@ function updateMap() {
   mapBall.position.copy(ballBody.position);
   mapBall.position.add(new THREE.Vector3(0.5, 0.5, 0));
   mapBall.position.multiply(new THREE.Vector3(aspect, aspect, 0));
+
+  // Update AI ball in versus mode.
+  if (gameMode == 'versus') {
+    mapBallVS.position.copy(ballBodyVS.position);
+    mapBallVS.position.add(new THREE.Vector3(0.5, 0.5, 0));
+    mapBallVS.position.multiply(new THREE.Vector3(aspect, aspect, 0));
+  }
 
   mapRenderer.render(mapScene, mapCamera);
 }
@@ -123,4 +163,15 @@ function updateLinePath() {
     mapBall.position.z + 2 * canvasSize / mazeDimension;
   mapLine.geometry.setDrawRange(0, ++nrOfPointsToDraw);
   mapLine.geometry.attributes.position.needsUpdate = true;
+}
+
+// Called when a new line should be added to path for AI in Versus mode.
+function updateLinePathVS() {
+  // Draw yellow line on path where ball has moved.
+  lineVerticesVS[vertIndexVS++] = mapBallVS.position.x;
+  lineVerticesVS[vertIndexVS++] = mapBallVS.position.y;
+  lineVerticesVS[vertIndexVS++] =
+    mapBallVS.position.z + 2 * canvasSize / mazeDimension;
+  mapLineVS.geometry.setDrawRange(0, ++nrOfPointsToDrawVS);
+  mapLineVS.geometry.attributes.position.needsUpdate = true;
 }

@@ -54,6 +54,11 @@
 		<h4 id="distToGoal">Distance to goal: XX</h4>
 	</div>
 
+	<div id="versus-energy-info">
+		<h4 id="versus-energy-left">AI energy left: XXXX</h4>
+		<h4 id="distToGoalVS">AI distance to goal: XX</h4>
+	</div>
+
 	<div id="level-info">
 		<h4 id="agent">Agent: X</h4>
 		<h4 id="level">Level X</h4>
@@ -73,6 +78,13 @@
 		<button id="restartBtn">Restart</button>
 	</div>
 
+	<div id="versus-game-ended" class="centeredPopUp">
+		<h3 id="endTitleVS"></h3>
+		<p id="scoreP">Total score: XXX</p>
+		<p id="scoreVS">Total score: XXX</p>
+		<button id="restartBtnVS">Next level</button>
+	</div>
+
 	<div id="ai-mode-info" class="centeredPopUp">
 		<h3>AI agent mode</h3>
 		<p>This mode will automatically play a game with the best agent.</p>
@@ -83,6 +95,7 @@
 				<p>N : Start a new training session.</p>
 				<p>C : Continue the training for the current agent.</p>
 				<p>P : Switch to manual player mode.</p>
+				<p>V : Switch to Manual vs. AI mode</p>
 				<p>S : Save current agents (Q-table) to file.</p>
 				<p>+ : Speed up training session.</p>
 				<p>- : Slow down the training session.</p>
@@ -98,9 +111,26 @@
 			<div class="commands">
 				<p>I : Show instructions.</p>
 				<p>A : Switch to AI agent mode.</p>
+				<p>V : Switch to versus mode.</p>
 			</div>
 		</div>
 		<button id="start-manual">Start game</button>
+	</div>
+
+	<div id="versus-mode-info" class="centeredPopUp">
+		<h3>Versus mode</h3>
+		<p>In this mode the user plays against an AI agent.</p>
+		<p>First one to the goal state wins this level, the best total score after 10 levels wins the game.</p>
+		<p id="availableAgents">Available agents: [0, 0]</p>
+		<p id="opponent">Opponent: 0</p>
+		<div class="wrap">
+			<div class="commands">
+				<p>I : Show instructions.</p>
+				<p>A : Switch to AI agent mode.</p>
+				<p>P : Switch to Manual player mode.</p>
+			</div>
+		</div>
+		<button id="start-versus">Start game</button>
 	</div>
 
 	<!-- Imported scripts -->
