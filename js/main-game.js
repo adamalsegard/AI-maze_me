@@ -666,14 +666,23 @@ function gameLoop() {
         }
         iter++;
       } else if (gameMode == 'versus') {
-        // Update camera from user input and get next step for AI.
-        updateCameraPosition();
-        if (iter % framesPerStepVS == 0) {
-          nextStepAI = getNextAIStep();
-          iter = 0;
-          stepsTaken++;
+        // Update camera from user input and get next step for AI. But only if there is energy left!
+        if (energy > 0) {
+          updateCameraPosition();
+        } else {
+          keyAxis = [0,0];
         }
-        iter++;
+        if(energyVS > 0) {
+          if (iter % framesPerStepVS == 0) {
+            nextStepAI = getNextAIStep();
+            iter = 0;
+            stepsTaken++;
+          }
+          iter++;
+        } else {
+          nextStepAI = new THREE.Vector2(0, 0);
+        }
+        
       } else {
         // gameMode is undefined, pause everything!
       }
@@ -773,7 +782,7 @@ function gameLoop() {
     case 'victory':
       // Display score and 'Next level' button.
       if (!displayed) {
-        completedLevelBonus += 100;
+        completedLevelBonus += 50;
         score += energy;
         $('#endTitle').html('You won!');
         $('#score').html('Total score: ' + score);
@@ -797,13 +806,15 @@ function gameLoop() {
     case 'versusEnd':
       // One round in versus battle completed. Show the correct div.
       if (!displayed) {
-        completedLevelBonus += 100;
+        completedLevelBonus += 50;
         score = win ? score + energy : score;
         scoreVS = AIwin ? scoreVS + energyVS : scoreVS;
         if (levelsCompleted == MAX_LEVELS_FOR_ONE_GAME) {
           $('#endTitleVS').html('Game ended!');
           $('#scoreP').html('Final score Player: ' + score);
           $('#scoreVS').html('Final score AI: ' + scoreVS);
+          var winner = score > scoreVS ? 'User!' : 'AI!';
+          $('#winner').html('The winner is the ' + winner);
           $('#restartBtnVS').html('New game');
           completedLevelBonus = 0;
           score = 0;
@@ -815,6 +826,7 @@ function gameLoop() {
           $('#endTitleVS').html('Level ended');
           $('#scoreP').html('Total score Player: ' + score);
           $('#scoreVS').html('Total score AI: ' + scoreVS);
+          $('#winner').html('');
           $('#restartBtnVS').html('Next level');
           if (mazeDimension == 25) {
             framesPerStepVS = 5;
