@@ -61,8 +61,8 @@ var agentToUse = 0,
 
 // Game parameters
 var energy = 0,
-  initEnergy = 1000,
-  mazeDimension = 15,
+  initEnergy = 500,
+  mazeDimension = 13,
   framesPerStep = 50,
   DEFAULT_AI_FPS = 10,
   score = 0,
@@ -525,15 +525,15 @@ function materialEntered(materialType, isAIinVS) {
   switch (materialType) {
     case 'bushLight':
       animateEnergySubtraction(bushLightSub, isAIinVS);
-      sum -= bushLightSub;
+      sum = bushLightSub;
       break;
     case 'bushMed':
       animateEnergySubtraction(bushMedSub, isAIinVS);
-      sum -= bushMedSub;
+      sum = bushMedSub;
       break;
     case 'bushDark':
       animateEnergySubtraction(bushDarkSub, isAIinVS);
-      sum -= bushDarkSub;
+      sum = bushDarkSub;
       break;
   }
   if (isAIinVS) {
@@ -622,7 +622,7 @@ function gameLoop() {
 
       // Update static display metrics.
       light.intensity = 0;
-      var level = Math.floor((mazeDimension - 1) / 2 - 4);
+      var level = Math.floor((mazeDimension - 1) / 2 - 5); // Assumes 13 is the starting mazeDim 
       $('#level').html('Level ' + level);
       $('#maze-size').html('Maze size: ' + mazeDimension);
       $('#training-round').html('Training round: ' + getTrainingRound());
@@ -712,7 +712,6 @@ function gameLoop() {
           gameState = 'fadeOut';
         }
       } else if (gameMode == 'versus') {
-        // TODO: Change how players get points!
         if (energy <= 0 && energyVS <= 0) {
           // Check if both have lost.
           win = false;
@@ -774,7 +773,7 @@ function gameLoop() {
     case 'victory':
       // Display score and 'Next level' button.
       if (!displayed) {
-        completedLevelBonus += 50;
+        completedLevelBonus += 100;
         score += energy;
         $('#endTitle').html('You won!');
         $('#score').html('Total score: ' + score);
@@ -798,19 +797,29 @@ function gameLoop() {
     case 'versusEnd':
       // One round in versus battle completed. Show the correct div.
       if (!displayed) {
-        completedLevelBonus += 50;
-        score += energy;
-        scoreVS += energyVS;
+        completedLevelBonus += 100;
+        score = win ? score + energy : score;
+        scoreVS = AIwin ? scoreVS + energyVS : scoreVS;
         if (levelsCompleted == MAX_LEVELS_FOR_ONE_GAME) {
           $('#endTitleVS').html('Game ended!');
           $('#scoreP').html('Final score Player: ' + score);
           $('#scoreVS').html('Final score AI: ' + scoreVS);
           $('#restartBtnVS').html('New game');
+          completedLevelBonus = 0;
+          score = 0;
+          scoreVS = 0;
+          mazeDimension = 13;
+          framesPerStepVS = 10;
+          framesPerStep = 50;
         } else {
           $('#endTitleVS').html('Level ended');
           $('#scoreP').html('Total score Player: ' + score);
           $('#scoreVS').html('Total score AI: ' + scoreVS);
           $('#restartBtnVS').html('Next level');
+          if (mazeDimension == 25) {
+            framesPerStepVS = 5;
+            framesPerStep = 30;
+          }
         }
         $('#versus-game-ended').show();
         displayed = true;
