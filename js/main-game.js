@@ -40,7 +40,7 @@ var camera = undefined,
 // VS parameters
 var lightVS = undefined,
   energyVS = 0,
-  framesPerStepVS = 10, // TODO
+  framesPerStepVS = 10,
   scoreVS = 0,
   ballBodyVS = undefined,
   ballMeshVS = undefined,
@@ -61,9 +61,9 @@ var agentToUse = 0,
 
 // Game parameters
 var energy = 0,
-  initEnergy = 2000,
-  mazeDimension = 19, // TODO: Change back to 11!
-  framesPerStep = 5, // TODO: Change back to 60!
+  initEnergy = 1000,
+  mazeDimension = 15,
+  framesPerStep = 50,
   DEFAULT_AI_FPS = 10,
   score = 0,
   completedLevelBonus = 0,
@@ -79,6 +79,7 @@ var energy = 0,
 
 // Load textures
 var ballTexture = textureLoader.load('./tex/ball.png'),
+  vsBallTexture = textureLoader.load('./tex/red_brick.jpg'),
   brickTexture = textureLoader.load('./tex/brick.png'),
   bushLight1Texture = textureLoader.load('./tex/bush_light1.jpg'),
   gravel1Texture = textureLoader.load('./tex/gravel1.jpg'),
@@ -170,6 +171,9 @@ function createPhysicsWorld() {
       material: ballMaterial
     });
     globalWorld.addBody(ballBodyVS);
+
+    // We need a different timeStep as well.
+    fixedTimeStepVS = 1.0 / framesPerStepVS;
   }
 
   // Create the maze.
@@ -300,7 +304,8 @@ function createRenderWorld() {
     light.castShadow = true;
 
     // Create the AI ball and add to scene.
-    ballMeshVS = new THREE.Mesh(ballGeo, ballMat);
+    var ballMatVS = new THREE.MeshPhongMaterial({ map: vsBallTexture });
+    ballMeshVS = new THREE.Mesh(ballGeo, ballMatVS);
     ballMeshVS.position.copy(ballInitPosVS);
     scene.add(ballMeshVS);
   }
@@ -384,15 +389,15 @@ function updatePhysicsWorld() {
 
     // AI
     var addVector = new CANNON.Vec3(
-      nextStepAI.x * fixedTimeStep,
-      nextStepAI.y * fixedTimeStep,
+      nextStepAI.x * fixedTimeStepVS,
+      nextStepAI.y * fixedTimeStepVS,
       0.0
     );
     ballBodyVS.position.vadd(addVector, ballBodyVS.position);
   }
 
   // Take a time step.
-  globalWorld.step(fixedTimeStep); // TODO!
+  globalWorld.step(fixedTimeStep);
 }
 
 // Update THREE render.
@@ -663,8 +668,7 @@ function gameLoop() {
       } else if (gameMode == 'versus') {
         // Update camera from user input and get next step for AI.
         updateCameraPosition();
-        if (iter % framesPerStep == 0) {
-          // TODO!
+        if (iter % framesPerStepVS == 0) {
           nextStepAI = getNextAIStep();
           iter = 0;
           stepsTaken++;

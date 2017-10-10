@@ -24,6 +24,7 @@ var mapBallVS = undefined,
 var textureLoader = new THREE.TextureLoader(),
   mapBushTex = textureLoader.load('./tex/bush_light1.jpg'),
   mapBallTex = textureLoader.load('./tex/ball.png'),
+  mapVsBallTex = textureLoader.load('./tex/red_brick.jpg'),
   mapBrickTex = textureLoader.load('./tex/brick.png');
 
 /**
@@ -110,7 +111,8 @@ function createMap(field) {
 
   // Add second ball if we're in versus mode
   if (gameMode == 'versus') {
-    mapBallVS = new THREE.Mesh(ballGeo, ballMat);
+    var ballMatVS = new THREE.MeshPhongMaterial({ map: mapVsBallTex });
+    mapBallVS = new THREE.Mesh(ballGeo, ballMatVS);
     mapBallVS.position.copy(ballInitPosVS);
     mapBallVS.position.add(new THREE.Vector3(0.5, 0.5, 0));
     mapBallVS.position.multiplyScalar(aspect);
