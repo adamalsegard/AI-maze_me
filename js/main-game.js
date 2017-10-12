@@ -920,10 +920,6 @@ $('#start-manual').click(() => {
 $('#start-versus').click(() => {
   // Hide pop up on click and save any possible AI agents if training was in session!
   $('#versus-mode-info').hide();
-  if (trainAI) {
-    agentToUse = saveAgent();
-    trainAI = false;
-  }
   // Let user decide what agent to play against.
   if (agentToUse < 0 || agentToUse >= numberOfAgents) {
     agentToUse = numberOfAgents > 0 ? numberOfAgents - 1 : 0;
@@ -1047,6 +1043,12 @@ $(document).ready(function() {
     if (gameMode != 'versus') {
       // Show pop up with info and switch to start Manual player loop.
       gameMode = undefined;
+      // Save agents if we've been training.
+      if (trainAI) {
+        agentToUse = saveAgent();
+        trainAI = false;
+      }
+      // Fetch available agents.
       fetchOldAgents(result => {
         numberOfAgents = result;
         $('#availableAgents').html(

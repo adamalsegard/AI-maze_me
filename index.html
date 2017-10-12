@@ -4,8 +4,9 @@
 <head>
 	<meta charset=utf-8>
 	<meta http-equiv="X-UA-Compatible" content="IE=edge" />
-	<title>AI_maze me</title>
-	<meta name="description" content="A procedurally generated 3D maze with WebGL" />
+	<title>AI-maze_me</title>
+	<meta name="description" content="A randomly generated 3D maze rendered with WebGL. An AI agent trained with Q-learning."
+	/>
 	<meta name="author" content="Adam Alsegard" />
 	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
 
@@ -18,15 +19,16 @@
 	<div id="help" class="centeredPopUp">
 		<h3>Help</h3>
 		<div>
-			<p>This is a procedurally generated maze. An AI agent has been trained with Q-learning to solve these kinds of mazes.</p>
-			<p>There is also an alternative to play the game with manual controls. Press the following keys to switch between the different
-				game modes: </p>
+			<p>This is a randomly generated maze. An AI agent has been trained with Q-learning to solve these kinds of mazes that you
+				can watch.</p>
+			<p>There are also alternatives to play the game with manual controls or in versus mode. Press the following keys to switch
+				between the different game modes: </p>
 		</div>
 		<div class="wrap">
 			<div class="commands">
-				<p>A : AI mode. Watch the pre-trained agent solve the current maze. (Default) </p>
-				<p>P : Manual player mode. Press 'I' to show controls. </p>
-				<p>N : Start a training session for a new AI agent. </p>
+				<p>A : AI mode. Watch the pre-trained agent solve the generated mazes. (Default) </p>
+				<p>P : Manual Player mode. Press 'I' to show controls. </p>
+				<p>V : Versus mode. Play against one of the trained AI agents. </p>
 			</div>
 		</div>
 	</div>
@@ -35,7 +37,7 @@
 		<h3>Instructions</h3>
 		<p>Use the arrow keys to move the ball and find your way out of the maze before your energy is gone.</p>
 		<p>You lose some energy for every step you take. Note that brick walls are solid but bushes are not.</p>
-		<p>However, if you go through a bush, more energy is spent. The darker the bush the more energy it requires.</p>
+		<p>However, if you go through a bush, more energy is spent.</p>
 		<p>Good luck!</p>
 	</div>
 
@@ -95,9 +97,10 @@
 			<div class="commands">
 				<p>N : Start a new training session.</p>
 				<p>C : Continue the training for the current agent.</p>
-				<p>P : Switch to manual player mode.</p>
-				<p>V : Switch to Manual vs. AI mode</p>
-				<p>S : Save current agents (Q-table) to file.</p>
+				<p>R : Restart the current level.</p>
+				<p>P : Switch to Manual Player mode.</p>
+				<p>V : Switch to Versus mode</p>
+				<p>S : Save current agents (Q-table) as a file.</p>
 				<p>+ : Speed up training session.</p>
 				<p>- : Slow down the training session.</p>
 			</div>
@@ -112,7 +115,7 @@
 			<div class="commands">
 				<p>I : Show instructions.</p>
 				<p>A : Switch to AI agent mode.</p>
-				<p>V : Switch to versus mode.</p>
+				<p>V : Switch to Versus mode.</p>
 			</div>
 		</div>
 		<button id="start-manual" class="rBtn">Start game</button>
@@ -121,14 +124,14 @@
 	<div id="versus-mode-info" class="centeredPopUp">
 		<h3>Versus mode</h3>
 		<p>In this mode the user plays against an AI agent.</p>
-		<p>First one to the goal state wins this level, the best total score after 10 levels wins the game.</p>
+		<p>First one to the exit wins this level, the best total score after 10 levels wins the game.</p>
 		<p id="availableAgents">Available agents: [0, 0]</p>
 		<p id="opponent">Opponent: 0</p>
 		<div class="wrap">
 			<div class="commands">
 				<p>I : Show instructions.</p>
 				<p>A : Switch to AI agent mode.</p>
-				<p>P : Switch to Manual player mode.</p>
+				<p>P : Switch to Manual Player mode.</p>
 			</div>
 		</div>
 		<button id="start-versus" class="rBtn">Start game</button>
