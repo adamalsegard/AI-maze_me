@@ -11,7 +11,7 @@ var trainingRound = 0,
   currentMaze = [],
   visitedMaze = undefined,
   MOVES = 4,
-  NRFEATURES = 13,
+  NRFEATURES = 12, // Ditch distToGoal!
   QSTATES = Math.pow(2, NRFEATURES), // All combinations if features can be binary classified!
   gamma = 0.8, // Addition of next step to new Q-value.
   learningRate = 0.5, // This value will start high and then go small.
@@ -288,11 +288,12 @@ function isValidMove(pos) {
 function getTransitionReward(pos) {
   var reward = 0;
 
+  /*
   // Incooperate the difference to goal as reward.
   var dist = calcGoalDist(pos);
   var diff = earlierDistance - dist;
   reward = diff == 0 ? 10 : diff * 2;
-
+*/
   // Get a negative reward if we revisit the same state we just came from.
   if (pos.distanceTo(lastPosAI) < 0.5) {
     pingPongTimes++;
@@ -436,7 +437,7 @@ function calculateFeatures(pos) {
     features[idx++] = getMaterialAtEnd(dir, pos);
     features[idx++] = getVisited(dir, pos);
   });
-  features[idx] = calcGoalDist(pos);
+  //features[idx] = calcGoalDist(pos);
 }
 
 // Return the state index corresponding to this set of features.
@@ -455,7 +456,7 @@ function getStateFromFeatures(currentFeatures) {
   if (currentFeatures[9] > 0) stateIndex += 512; // Free spaces downwards
   if (currentFeatures[10] == 2) stateIndex += 1024; // Brick at end
   if (currentFeatures[11]) stateIndex += 2048; // Direction visited
-  if (currentFeatures[12] < earlierDistance) stateIndex += 4096; // Do we increase or decrease the distance to goal?
+  //if (currentFeatures[12] < earlierDistance) stateIndex += 4096; // Do we increase or decrease the distance to goal?
 
   return stateIndex;
 }
